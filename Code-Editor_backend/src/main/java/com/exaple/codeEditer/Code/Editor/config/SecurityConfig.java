@@ -43,10 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/ws/**",
-                                "/ws/info",
-                                "/ws/websocket",
-                                "/ws/**/**"
+                                "/ws/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

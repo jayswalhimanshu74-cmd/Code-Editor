@@ -17,6 +17,6 @@ public class ExecuteResponse {
     private String compileOutput;
     private String status;
     private Integer exitCode;
-    private Double time;
-    private Integer memory;
+    private String time;
+    private String memory;
 }

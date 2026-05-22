@@ -1,6 +1,5 @@
 package com.exaple.codeEditer.Code.Editor.service;
 
-
 import com.exaple.codeEditer.Code.Editor.dto.piston.ExecuteRequest;
 import com.exaple.codeEditer.Code.Editor.dto.piston.ExecuteResponse;
 import com.exaple.codeEditer.Code.Editor.entity.ExecutionHistory;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,8 +25,14 @@ import java.util.UUID;
 @Slf4j
 public class PistonService {
 
-    @Value("${piston.api.url}")
+    @Value("${jdoodle.api.url}")
     private String apiUrl;
+
+    @Value("${jdoodle.client.id}")
+    private String clientId;
+
+    @Value("${jdoodle.client.secret}")
+    private String clientSecret;
 
     private final ExecutionHistoryRepository executionHistoryRepository;
     private final RoomRepository roomRepository;
@@ -36,18 +40,20 @@ public class PistonService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
+    // JDoodle language + version index
     private static final Map<String, String[]> LANGUAGE_MAP = new HashMap<>();
     static {
-        LANGUAGE_MAP.put("python",     new String[]{"python",     "3.10.0"});
-        LANGUAGE_MAP.put("javascript", new String[]{"javascript", "18.15.0"});
-        LANGUAGE_MAP.put("java",       new String[]{"java",       "15.0.2"});
-        LANGUAGE_MAP.put("cpp",        new String[]{"c++",        "10.2.0"});
-        LANGUAGE_MAP.put("c",          new String[]{"c",          "10.2.0"});
-        LANGUAGE_MAP.put("go",         new String[]{"go",         "1.16.2"});
-        LANGUAGE_MAP.put("rust",       new String[]{"rust",       "1.50.0"});
-        LANGUAGE_MAP.put("typescript", new String[]{"typescript", "5.0.3"});
-        LANGUAGE_MAP.put("kotlin",     new String[]{"kotlin",     "1.8.20"});
-        LANGUAGE_MAP.put("csharp",     new String[]{"csharp",     "6.12.0"});
+        //                        language slug       versionIndex
+        LANGUAGE_MAP.put("python",     new String[]{"python3",     "4"});
+        LANGUAGE_MAP.put("javascript", new String[]{"nodejs",      "4"});
+        LANGUAGE_MAP.put("java",       new String[]{"java",        "4"});
+        LANGUAGE_MAP.put("cpp",        new String[]{"cpp17",       "1"});
+        LANGUAGE_MAP.put("c",          new String[]{"c",           "5"});
+        LANGUAGE_MAP.put("go",         new String[]{"go",          "4"});
+        LANGUAGE_MAP.put("rust",       new String[]{"rust",        "4"});
+        LANGUAGE_MAP.put("typescript", new String[]{"typescript",  "4"});
+        LANGUAGE_MAP.put("kotlin",     new String[]{"kotlin",      "3"});
+        LANGUAGE_MAP.put("csharp",     new String[]{"csharp",      "4"});
     }
 
     public PistonService(ExecutionHistoryRepository executionHistoryRepository,
@@ -61,9 +67,7 @@ public class PistonService {
         this.objectMapper = objectMapper;
     }
 
-    public ExecuteResponse execute(UUID roomId,
-                                   ExecuteRequest request,
-                                   String email) {
+    public ExecuteResponse execute(UUID roomId, ExecuteRequest request, String email) {
 
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
@@ -71,22 +75,19 @@ public class PistonService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        String[] runtime = LANGUAGE_MAP.get(request.getLanguage().toLowerCase());
-        if (runtime == null) {
-            throw new RuntimeException(
-                    "Unsupported language: " + request.getLanguage()
-            );
+        String[] langConfig = LANGUAGE_MAP.get(request.getLanguage().toLowerCase());
+        if (langConfig == null) {
+            throw new RuntimeException("Unsupported language: " + request.getLanguage());
         }
 
         long startTime = System.currentTimeMillis();
 
         try {
-            ExecuteResponse response = callPiston(
+            ExecuteResponse response = callJDoodle(
                     request.getSourceCode(),
-                    request.getLanguage(),
-                    runtime[0],
-                    runtime[1],
-                    request.getStdin()
+                    request.getStdin(),
+                    langConfig[0],
+                    langConfig[1]
             );
 
             long duration = System.currentTimeMillis() - startTime;
@@ -95,52 +96,63 @@ public class PistonService {
             return response;
 
         } catch (Exception e) {
-            log.error("Piston execution failed: {}", e.getMessage());
+            log.error("JDoodle execution failed: {}", e.getMessage());
             throw new RuntimeException("Code execution failed: " + e.getMessage());
         }
     }
 
-    private ExecuteResponse callPiston(String sourceCode,
-                                       String language,
-                                       String runtime,
-                                       String version,
-                                       String stdin) throws Exception {
+    private ExecuteResponse callJDoodle(String sourceCode,
+                                        String stdin,
+                                        String language,
+                                        String versionIndex) throws Exception {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        Map<String, Object> file = new HashMap<>();
-        file.put("name", getFileName(language));
-        file.put("content", sourceCode);
-
         Map<String, Object> body = new HashMap<>();
-        body.put("language", runtime);
-        body.put("version", version);
-        body.put("files", List.of(file));
-        body.put("stdin", stdin != null ? stdin : "");
+        body.put("clientId",     clientId);
+        body.put("clientSecret", clientSecret);
+        body.put("script",       sourceCode);
+        body.put("language",     language);
+        body.put("versionIndex", versionIndex);
+        body.put("stdin",        stdin != null ? stdin : "");
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
+        log.info("Calling JDoodle for language: {}", language);
+
         ResponseEntity<String> response = restTemplate.postForEntity(
-                apiUrl + "/execute",
-                entity,
-                String.class
+                apiUrl, entity, String.class
         );
 
-        JsonNode node   = objectMapper.readTree(response.getBody());
-        JsonNode run    = node.get("run");
+        JsonNode node = objectMapper.readTree(response.getBody());
 
-        String  stdout  = getText(run, "stdout");
-        String  stderr  = getText(run, "stderr");
-        int     code    = run.has("code") ? run.get("code").asInt() : 0;
+        String output    = getText(node, "output");
+        int    exitCode  = node.has("statusCode")
+                           ? node.get("statusCode").asInt() : 0;
+        String memory    = getText(node, "memory");
+        String cpuTime   = getText(node, "cpuTime");
 
+        // JDoodle returns everything in "output" — split stdout/stderr best effort
+        String stdout = null;
+        String stderr = null;
+
+        if (output != null) {
+            // JDoodle prefixes runtime errors with "JDoodle" or contains exception text
+            if (exitCode != 200 || output.contains("Exception") 
+                    || output.contains("Error") || output.contains("error")) {
+                stderr = output;
+            } else {
+                stdout = output;
+            }
+        }
+
+        // statusCode 200 = success in JDoodle
         String status;
-        if (code == 0 && (stderr == null || stderr.isBlank())) {
+        if (exitCode == 200) {
             status = "Accepted";
-        } else if (code != 0) {
-            status = "Runtime Error";
         } else {
-            status = "Completed";
+            status = "Runtime Error";
         }
 
         return ExecuteResponse.builder()
@@ -148,33 +160,14 @@ public class PistonService {
                 .stderr(stderr)
                 .compileOutput(null)
                 .status(status)
-                .exitCode(code)
-                .time(null)
-                .memory(null)
+                .exitCode(exitCode == 200 ? 0 : 1)
+                .time(cpuTime)
+                .memory(memory)
                 .build();
     }
 
-    private String getFileName(String language) {
-        return switch (language.toLowerCase()) {
-            case "python"     -> "main.py";
-            case "javascript" -> "main.js";
-            case "typescript" -> "main.ts";
-            case "java"       -> "Main.java";
-            case "cpp"        -> "main.cpp";
-            case "c"          -> "main.c";
-            case "go"         -> "main.go";
-            case "rust"       -> "main.rs";
-            case "kotlin"     -> "main.kt";
-            case "csharp"     -> "main.cs";
-            default           -> "main.txt";
-        };
-    }
-
-    private void saveHistory(Room room,
-                             User user,
-                             ExecuteRequest request,
-                             ExecuteResponse response,
-                             int durationMs) {
+    private void saveHistory(Room room, User user, ExecuteRequest request,
+                             ExecuteResponse response, int durationMs) {
         ExecutionHistory history = ExecutionHistory.builder()
                 .room(room)
                 .runBy(user)

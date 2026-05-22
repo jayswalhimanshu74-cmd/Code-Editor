@@ -11,6 +11,8 @@ import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
 import com.exaple.codeEditer.Code.Editor.service.PistonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -34,6 +36,10 @@ public class ExecutionController {
             @Valid @RequestBody ExecuteRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
 
+
+    if (userDetails == null) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
         return ResponseEntity.ok(
                 pistonService.execute(roomId, request, userDetails.getUsername())
         );

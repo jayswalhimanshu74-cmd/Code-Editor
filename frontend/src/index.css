@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-[rgba(22,22,24,0.8)] backdrop-blur-[16px] border border-[rgba(255,255,255,0.1)];
+  }
+}
+
+@layer utilities {
+  .code-token-keyword { color: #c0c1ff; }
+  .code-token-string { color: #ffb783; }
+  .code-token-function { color: #adc6ff; }
+  .code-token-comment { color: #908fa0; }
+}
+
+body {
+  @apply bg-background text-on-surface font-body-md overflow-x-hidden;
+}

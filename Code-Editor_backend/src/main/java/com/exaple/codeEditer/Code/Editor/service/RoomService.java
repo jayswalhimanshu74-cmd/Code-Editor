@@ -54,6 +54,7 @@ public class RoomService {
     }
 
     // ── Get all rooms user is member of ──────────────────
+    @Transactional(readOnly = true)
     public List<RoomResponse> getMyRooms(String email) {
         User user = getUserByEmail(email);
 
@@ -64,6 +65,7 @@ public class RoomService {
     }
 
     // ── Get single room ───────────────────────────────────
+    @Transactional(readOnly = true)
     public RoomResponse getRoom(UUID roomId, String email) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
@@ -119,6 +121,7 @@ public class RoomService {
             throw new RuntimeException("Only the owner can delete this room");
         }
 
+        roomMemberRepository.deleteByRoom(room);
         roomRepository.delete(room);
     }
 
@@ -146,6 +149,7 @@ public class RoomService {
         return code;
     }
 
+    @Transactional(readOnly = true)
     private RoomResponse toRoomResponse(Room room) {
         List<RoomMember> members = roomMemberRepository.findByRoom(room);
 
