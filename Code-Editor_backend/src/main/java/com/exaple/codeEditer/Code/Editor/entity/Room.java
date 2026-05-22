@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -23,9 +25,16 @@ public class Room {
     @Column(name = "invite_code", nullable = false, unique = true, length = 12)
     private String inviteCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
+
+    @OneToMany(
+            mappedBy = "room",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<RoomMember> members = new ArrayList<>();
 
     @Column(nullable = false, length = 30)
     private String language = "javascript";
