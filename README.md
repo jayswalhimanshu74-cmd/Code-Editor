@@ -1,136 +1,254 @@
 # CodeEditor 🚀
 
-A real-time collaborative code editor that allows multiple users to create rooms, join coding sessions, collaborate live, manage files, and execute code together.
+A Full-Stack Real-Time Collaborative Code Editor that allows multiple users to create coding rooms, collaborate live, chat with teammates, manage files, and execute code remotely.
 
-Built with React, Spring Boot, WebSocket/STOMP, JWT Authentication, and collaborative room architecture.
+Inspired by collaborative IDE platforms like Replit and CodePen, the platform combines real-time communication with multi-language code execution and room-based collaboration.
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-### Authentication & Security
+## 🔐 Authentication & Security
+
 - User registration and login
 - JWT authentication
-- Access token based authorization
-- Protected routes
-- Secure APIs using Spring Security
-
-### Collaborative Rooms
-- Create coding rooms
-- Join rooms using Room ID
-- Real-time participant collaboration
-- Join/leave notifications
-- Room lobby management
-
-### Real-Time Code Collaboration
-- Live code synchronization
-- WebSocket + STOMP integration
-- Instant updates for all room members
-- Prevent self-update loops
-- Multi-user editing experience
-
-### File Management
-- Create files
-- Rename files
-- Delete files
-- Switch between files
-- Support for multiple files inside rooms
-
-### Code Execution
-- Run code directly from editor
-- Multiple language support:
-  - Java
-  - JavaScript
-  - Python
-  - C
-  - C++
-  - Go
-  - Rust
-  - Kotlin
-- Input support (stdin)
-- Output console
-- Execution history
-
-### Dashboard
-- View created rooms
-- Recent activity
-- Profile information
+- Refresh token support
+- Spring Security authorization
+- Protected frontend routes
+- Secure REST APIs
 
 ---
 
-## 🛠 Tech Stack
+## 👥 Collaborative Rooms
 
-### Frontend
-- React + Vite
+Users can:
+
+- Create coding rooms
+- Join rooms via room ID / invite code
+- Collaborate in shared workspaces
+- Track room members in real time
+- Join and leave dynamically
+
+---
+
+## ⚡ Real-Time Code Collaboration
+
+Built using:
+
+- Spring WebSocket
+- STOMP Protocol
+- SockJS
+
+Features:
+
+- Live code synchronization
+- Instant updates to all users
+- Presence tracking
+- Join/leave events
+- Multi-user collaboration
+
+The editor prevents self-trigger update loops for smooth editing.
+
+---
+
+## 💻 Monaco Editor Integration
+
+Uses Monaco Editor (VS Code engine)
+
+Features:
+
+- Syntax highlighting
+- Multi-language support
+- Editor themes
+- Fast rendering
+- Rich coding experience
+
+---
+
+## 📁 File Management System
+
+Workspace supports:
+
+- Create file
+- Rename file
+- Delete file
+- Multiple files per room
+- File switching
+
+---
+
+## ▶ Remote Code Execution
+
+Code execution is handled by backend APIs that send code to an external execution engine.
+
+Supported languages:
+
+- JavaScript
+- Python
+- Java
+- C
+- C++
+- Go
+- Rust
+- Kotlin
+- TypeScript
+- C#
+
+Execution features:
+
+- stdin support
+- stdout
+- stderr
+- exit code
+- execution history
+- execution time tracking
+
+---
+
+## 💬 Live Team Chat
+
+Users inside the same room can communicate through:
+
+- Real-time messaging
+- Instant updates
+- Team collaboration panel
+
+No page refresh required.
+
+---
+
+## 📜 Execution History
+
+Stores:
+
+- source code
+- output
+- errors
+- language
+- execution duration
+- exit codes
+
+Saved using PostgreSQL.
+
+---
+
+## 🤖 AI Assistant (In Progress)
+
+Frontend currently includes:
+
+AI Chat panel integration
+
+Current state:
+
+- UI completed
+- backend endpoint pending
+- prepared for future LLM integration
+
+Planned:
+
+- AI Copilot
+- code suggestions
+- debugging help
+- explain code
+- generation assistance
+
+---
+
+# 🏗 System Architecture
+
+Frontend ↔ REST API/WebSocket ↔ Spring Boot Backend ↔ PostgreSQL
+
+Real-time communication:
+
+Frontend ↔ STOMP ↔ WebSocket ↔ Backend
+
+Execution flow:
+
+Editor → Backend → External Compiler API → Output
+
+---
+
+# 🛠 Tech Stack
+
+## Frontend
+
+- React
+- Vite
 - Tailwind CSS
-- React Router
-- Axios
 - Zustand
+- Axios
+- Monaco Editor
 - SockJS
 - STOMPJS
-
-### Backend
-- Spring Boot
-- Spring Security
-- JWT Authentication
-- Spring WebSocket
-- JPA / Hibernate
-- PostgreSQl
-- REST APIs
-
-### Database
-- PostgreSQL
-
-### Real-Time Communication
-- WebSocket
-- SockJS
-- STOMP
+- React Router
 
 ---
 
-## 📁 Project Structure
+## Backend
+
+- Java 22
+- Spring Boot 3.3.5
+- Spring Security
+- Spring WebSocket
+- Spring Data JPA
+- JWT Authentication
+
+---
+
+## Database
+
+- PostgreSQL
+
+---
+
+## Real-Time Communication
+
+- WebSocket
+- STOMP
+- SockJS
+
+---
+
+# 📂 Project Structure
 
 ```text
 CodeEditor/
 │
 ├── backend/
+│
 │   ├── controller/
 │   ├── service/
 │   ├── entity/
 │   ├── repository/
+│   ├── websocket/
 │   ├── security/
-│   └── websocket/
+│   └── config/
 │
 ├── frontend/
+│
 │   ├── src/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── store/
-│   │   └── assets/
+│   │
+│   ├── api/
+│   ├── components/
+│   ├── pages/
+│   ├── store/
+│   ├── assets/
+│   └── hooks/
 │
 └── README.md
 ```
 
 ---
 
-## ⚙️ Installation
+# ⚙ Backend Setup
 
-### Clone Repository
+Clone project:
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/CodeEditor.git
 ```
 
-```bash
-cd CodeEditor
-```
-
----
-
-## Backend Setup
-
-Go into backend:
+Move:
 
 ```bash
 cd backend
@@ -139,18 +257,18 @@ cd backend
 Configure:
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/codeeditor
+spring.datasource.url=jdbc:postgresql://localhost:5432/codeeditor
 
-spring.datasource.username=root
+spring.datasource.username=postgres
 
-spring.datasource.password=yourpassword
+spring.datasource.password=password
 
-jwt.secret=yourSecret
+jwt.secret=your-secret
 
 jwt.expiration=900000
 ```
 
-Run backend:
+Run:
 
 ```bash
 mvn spring-boot:run
@@ -164,21 +282,21 @@ http://localhost:8080
 
 ---
 
-## Frontend Setup
+# ⚙ Frontend Setup
 
-Move to frontend:
+Move:
 
 ```bash
 cd frontend
 ```
 
-Install dependencies:
+Install:
 
 ```bash
 npm install
 ```
 
-Create `.env`
+Create:
 
 ```env
 VITE_API_URL=http://localhost:8080
@@ -198,19 +316,20 @@ http://localhost:5173
 
 ---
 
-## WebSocket Endpoint
+# WebSocket Endpoint
 
 ```text
 /ws
 ```
 
-Topics:
+Subscribe:
 
 ```text
-/topic/room/{roomId}/code
+/ topic/room/{roomId}/code
+/ topic/room/{roomId}/chat
 ```
 
-Application destinations:
+Send:
 
 ```text
 /app/room/{roomId}
@@ -218,78 +337,91 @@ Application destinations:
 
 ---
 
-## API Examples
+# API Routes
 
-### Login
-
-```http
-POST /api/auth/login
-```
-
-### Register
+Authentication:
 
 ```http
 POST /api/auth/register
+POST /api/auth/login
 ```
 
-### Create Room
+Rooms:
 
 ```http
 POST /api/rooms
-```
-
-### Join Room
-
-```http
 POST /api/rooms/{roomId}/join
 ```
 
-### Execute Code
+Execution:
 
 ```http
 POST /api/rooms/{roomId}/execute
+GET /api/rooms/{roomId}/executions
+```
+
+Files:
+
+```http
+POST /api/files
+DELETE /api/files
 ```
 
 ---
 
-## Screens
+# Future Enhancements
 
-- Landing Page
-- Login
-- Register
-- Dashboard
-- Room Lobby
-- Collaborative Editor
-- File Manager
-- History
-- Profile
-- Settings
-
----
-
-## Future Improvements
-
-- Video call integration
-- Cursor presence
-- Live chat
-- Code compilation containers
-- AI code assistant
-- Syntax intelligence
+- AI Copilot
+- Cursor presence tracking
+- Video calling
+- Voice collaboration
 - GitHub integration
+- Language Server Protocol support
+- Auto completion intelligence
+- Shared terminal
 
 ---
 
-## Author
+# Current Status
+
+Completed:
+
+✅ Authentication
+
+✅ Room Management
+
+✅ Real-Time Collaboration
+
+✅ File Management
+
+✅ Live Chat
+
+✅ WebSocket Integration
+
+✅ Code Synchronization
+
+✅ Execution History
+
+🚧 AI Assistant
+
+🚧 Advanced IDE features
+
+---
+
+# Author
 
 Himanshu Jayswal
 
- Java Full Stack Developer
+Full Stack Java Developer
 
 GitHub:
 https://github.com/jayswalhimanshu74-cmd
 
+LinkedIn:
+https://www.linkedin.com/in/himanshu-jayswal-14a747314
+
 ---
 
-## License
+# License
 
-This project is developed for educational and portfolio purposes.
+Developed for educational, portfolio, and learning purposes.
