@@ -158,36 +158,66 @@ const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelet
 };
 
 // ── Output Panel ──────────────────────────────────────────────────────────────
-const OutputPanel = ({ output, isRunning, onClear }) => (
-  <div className="h-full flex flex-col overflow-hidden">
-    <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/20 flex-shrink-0">
-      <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-label-sm">Terminal</span>
-      {output && (
-        <button onClick={onClear} className="text-on-surface-variant hover:text-on-surface transition-colors">
-          <span className="material-symbols-outlined text-[13px]">clear_all</span>
-        </button>
-      )}
-    </div>
-    <div className="flex-1 overflow-y-auto p-3 bg-black/30">
-      {isRunning ? (
-        <div className="flex items-center gap-2 text-on-surface-variant text-[11px] font-code-md">
-          <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
-          Executing...
+const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, setShowStdin, onRun }) => (
+    <div className="h-full flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/20 flex-shrink-0">
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-label-sm">Terminal</span>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setShowStdin(v => !v)}
+                    className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded transition-all ${showStdin ? 'bg-primary/20 text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+                    title="Toggle stdin input"
+                >
+                    <span className="material-symbols-outlined text-[12px]">input</span>
+                    stdin
+                </button>
+                {output && (
+                    <button onClick={onClear} className="text-on-surface-variant hover:text-on-surface transition-colors">
+                        <span className="material-symbols-outlined text-[13px]">clear_all</span>
+                    </button>
+                )}
+            </div>
         </div>
-      ) : output ? (
-        <pre className="text-on-surface text-[11px] font-code-md whitespace-pre-wrap leading-relaxed">
-          {output}
-        </pre>
-      ) : (
-        <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
-          <span className="material-symbols-outlined text-[28px] text-on-surface-variant">terminal</span>
-          <p className="text-on-surface-variant text-[11px] font-body-md">
-            Press Run to execute your code
-          </p>
+
+        {/* Stdin input */}
+        {showStdin && (
+            <div className="flex-shrink-0 border-b border-outline-variant/20 p-2">
+                <div className="text-[9px] text-on-surface-variant uppercase tracking-widest mb-1 px-1">
+                    Program Input (stdin)
+                </div>
+                <textarea
+                    value={stdin}
+                    onChange={e => setStdin(e.target.value)}
+                    placeholder="Enter input for your program..."
+                    rows={3}
+                    className="w-full bg-black/30 border border-outline-variant/30 rounded-lg px-2 py-1.5 text-on-surface text-[11px] font-code-md placeholder:text-outline focus:border-primary/40 focus:outline-none transition-all resize-none"
+                />
+            </div>
+        )}
+
+        {/* Output */}
+        <div className="flex-1 overflow-y-auto p-3 bg-black/30">
+            {isRunning ? (
+                <div className="flex items-center gap-2 text-on-surface-variant text-[11px] font-code-md">
+                    <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
+                    Executing...
+                </div>
+            ) : output ? (
+                <pre className="text-on-surface text-[11px] font-code-md whitespace-pre-wrap leading-relaxed">
+                    {output}
+                </pre>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
+                    <span className="material-symbols-outlined text-[28px] text-on-surface-variant">terminal</span>
+                    <p className="text-on-surface-variant text-[11px] font-body-md">
+                        Press Run or Ctrl+Enter to execute
+                    </p>
+                </div>
+            )}
         </div>
-      )}
     </div>
-  </div>
 );
 
 // ── AI Chat Panel ─────────────────────────────────────────────────────────────
@@ -515,6 +545,8 @@ const EditorWorkspace = () => {
   const [connectedUsers, setConnectedUsers] = useState(user ? [user] : []);
   const [copied, setCopied] = useState(false);
   const [wsStatus, setWsStatus] = useState('connecting');
+  const [stdin, setStdin] = useState('');
+const [showStdin, setShowStdin] = useState(false);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
 
   // Panel widths (desktop)
@@ -525,6 +557,7 @@ const EditorWorkspace = () => {
  const editorRef = useRef(null);
 const activeFileRef = useRef(activeFile);
 const userRef = useRef(user);
+const codeRef = useRef(code);
 
 useEffect(()=>{
    activeFileRef.current=activeFile;
@@ -731,6 +764,7 @@ useEffect(()=>{
   // ── Handlers ──
   const handleCodeChange = (value = '') => {
       if (!activeFile) return;
+      codeRef.current=value;
     setCode(value);
     setFiles((prev) =>
       prev.map((f) => (f.id === activeFile?.id ? { ...f, content: value } : f))
@@ -795,7 +829,34 @@ useEffect(()=>{
       );
       }
   };
+  const handleRunWithCode = async (currentCode) => {
+    if (isRunning) return;
+    setIsRunning(true);
+    setOutput('');
+    setRightTab('output');
 
+    try {
+        const { data } = await executionService.execute(
+            roomId,
+            currentCode, // ✅ use passed code, not stale closure
+            room?.language || 'javascript',
+            stdin
+        );
+
+        const result = data.stdout || data.stderr || 'No output';
+        setOutput(result);
+
+        if (data.exitCode !== 0 && data.stderr) {
+            console.warn('Program exited with error:', data.exitCode);
+        }
+    } catch (err) {
+        setOutput('Failed to run: ' + (err.response?.data?.message || err.message));
+    } finally {
+        setIsRunning(false);
+    }
+};
+
+// ✅ Keep original handleRun using ref too
   const handleRun = async () => {
     if (isRunning) return;
     setIsRunning(true);
@@ -806,7 +867,8 @@ useEffect(()=>{
     const { data } = await executionService.execute(
     roomId,
     code,
-    room?.language || 'javascript'
+    room?.language || 'javascript',
+    stdin
     );
     // data = { stdout, stderr, exitCode, status }
 
@@ -989,6 +1051,12 @@ useEffect(()=>{
               theme="vs-dark"
               onMount={(editor) => {
                 editorRef.current = editor;
+                editor.addCommand(
+                monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                    () => {
+                        handleRunWithCode(codeRef.current); 
+                    }
+                ); 
                 editor.onDidChangeCursorPosition((e) => {
                   setCursor({
                     line: e.position.lineNumber,
@@ -1063,13 +1131,18 @@ useEffect(()=>{
             {rightTab === 'ai' && (
               <AIPanel code={code} language={language} />
             )}
-            {rightTab === 'output' && (
-              <OutputPanel
+           {rightTab === 'output' && (
+            <OutputPanel
                 output={output}
                 isRunning={isRunning}
                 onClear={() => setOutput('')}
-              />
-            )}
+                stdin={stdin}
+                setStdin={setStdin}
+                showStdin={showStdin}
+                setShowStdin={setShowStdin}
+                onRun={handleRun}
+            />
+        )}
             {rightTab === 'chat' && (
               <ChatPanel
                 roomId={roomId}
@@ -1094,6 +1167,7 @@ useEffect(()=>{
         <span>{LANGUAGE_LABELS[language] || 'JavaScript'}</span>
 
         <span className="ml-auto opacity-60">UTF-8</span>
+
 
         <button
           onClick={handleRun}
