@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -18,10 +20,12 @@ public class ExecutionHistory {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
+    @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
     private Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "run_by", nullable = false)
+    @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "password", "refreshToken" })
     private User runBy;
 
     @Column(nullable = false, length = 30)
