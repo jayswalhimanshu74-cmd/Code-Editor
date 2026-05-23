@@ -31,27 +31,28 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(customAuthenticationEntryPoint))
-                .sessionManagement(s ->
-                        s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+            http
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                    .exceptionHandling(exception -> exception.authenticationEntryPoint(customAuthenticationEntryPoint))
+                    .sessionManagement(s ->
+                            s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/ws/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                    .authorizeHttpRequests(auth -> auth
+                            .requestMatchers(
+                                    "/api/auth/**",
+                                    "/ws/**",
+                                    "/api/ai/**"
+                            ).permitAll()
+                            .anyRequest().authenticated()
+                    )
+                    .authenticationProvider(authenticationProvider())
+                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+            return http.build();
+        }
 
     @Bean
     public org.springframework.security.authentication.AuthenticationProvider authenticationProvider() {

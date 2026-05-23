@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
+import api from '../../api/axios';
 
 import { wsService } from '../../api/websocketService';
 import { fileService } from '../../api/fileService';
@@ -191,131 +192,169 @@ const OutputPanel = ({ output, isRunning, onClear }) => (
 
 // ── AI Chat Panel ─────────────────────────────────────────────────────────────
 const AIPanel = ({ code, language }) => {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
+    const [loading, setLoading] = useState(false);
+    const bottomRef = useRef(null);
+    const inputRef = useRef(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || loading) return;
+    const sendMessage = async (text) => {
+        const trimmed = text?.trim() || input.trim();
+        if (!trimmed || loading) return;
 
-    const userMsg = { role: 'user', content: text };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
+        const userMsg = { role: 'user', content: trimmed };
+        const updatedMessages = [...messages, userMsg];
+        setMessages(updatedMessages);
+        setInput('');
+        setLoading(true);
 
-    try {
-      // TODO: replace with your actual AI API call
-      // Example: pass current code as context
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg],
-          context: { code, language },
-        }),
-      });
-      const { reply } = await response.json();
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'AI is not connected yet. Wire up your /api/ai/chat endpoint.' },
-      ]);
-    } finally {
-      setLoading(false);
-      inputRef.current?.focus();
-    }
-  };
+        try {
+            const response = await api.post(`/ai/chat`, {
+                messages: updatedMessages,
+                code,
+                language,
+            });
 
-  const quickPrompts = [
-    'Explain this code',
-    'Find bugs',
-    'Optimize it',
-    'Add comments',
-  ];
+            setMessages((prev) => [
+                ...prev,
+                { role: 'assistant', content: response.data.reply },
+            ]);
+        } catch (err) {
+            setMessages((prev) => [
+                ...prev,
+{
+                role: 'assistant',
+                content: 'Failed to reach AI: ' + (err.response?.data?.message || err.message),
+            },            ]);
+        } finally {
+            setLoading(false);
+            inputRef.current?.focus();
+        }
+    };
 
-  return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
-              <span className="material-symbols-outlined text-primary text-[22px]">smart_toy</span>
+    const quickPrompts = [
+        'Explain this code',
+        'Find bugs',
+        'Optimize it',
+        'Add comments',
+    ];
+
+    const clearChat = () => setMessages([]);
+
+    return (
+        <div className="h-full flex flex-col overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant/20 flex-shrink-0">
+                <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
+                    <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                        Gemini AI
+                    </span>
+                </div>
+                {messages.length > 0 && (
+                    <button
+                        onClick={clearChat}
+                        className="text-on-surface-variant hover:text-on-surface transition-colors"
+                        title="Clear chat"
+                    >
+                        <span className="material-symbols-outlined text-[13px]">clear_all</span>
+                    </button>
+                )}
             </div>
-            <p className="text-on-surface-variant text-[11px] font-body-md opacity-70">
-              Ask AI about your code
-            </p>
-            {/* Quick prompt chips */}
-            <div className="flex flex-wrap gap-1.5 justify-center mt-1">
-              {quickPrompts.map((p) => (
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+                {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+                        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
+                            <span className="material-symbols-outlined text-primary text-[22px]">smart_toy</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[11px]">
+                            Ask AI about your code
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 justify-center mt-1">
+                            {quickPrompts.map((p) => (
+                                <button
+                                    key={p}
+                                    onClick={() => sendMessage(p)}
+                                    className="px-2 py-1 bg-surface-variant/30 border border-outline-variant/30 rounded-full text-on-surface-variant text-[10px] hover:border-primary/30 hover:text-primary transition-all"
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    messages.map((msg, i) => (
+                        <div
+                            key={i}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                            {msg.role === 'assistant' && (
+                                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mr-1.5 mt-0.5">
+                                    <span className="material-symbols-outlined text-primary text-[11px]">smart_toy</span>
+                                </div>
+                            )}
+                            <div
+                                className={`max-w-[88%] rounded-xl px-3 py-2 text-[11px] leading-relaxed ${
+                                    msg.role === 'user'
+                                        ? 'bg-primary/20 text-on-surface rounded-br-sm'
+                                        : 'bg-surface-variant/30 text-on-surface rounded-bl-sm'
+                                }`}
+                            >
+                                <pre className="whitespace-pre-wrap font-body-md" style={{ fontFamily: 'inherit' }}>
+                                    {msg.content}
+                                </pre>
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                {loading && (
+                    <div className="flex justify-start items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <span className="material-symbols-outlined text-primary text-[11px]">smart_toy</span>
+                        </div>
+                        <div className="bg-surface-variant/30 rounded-xl rounded-bl-sm px-3 py-2 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                    </div>
+                )}
+                <div ref={bottomRef} />
+            </div>
+
+            {/* Input */}
+            <div className="flex-shrink-0 border-t border-outline-variant/20 p-2 flex gap-2">
+                <input
+                    ref={inputRef}
+                    className="flex-1 bg-black/20 border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface text-[11px] placeholder:text-outline focus:border-primary/50 focus:outline-none transition-all"
+                    placeholder="Ask AI about your code..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                        }
+                    }}
+                />
                 <button
-                  key={p}
-                  onClick={() => { setInput(p); inputRef.current?.focus(); }}
-                  className="px-2 py-1 bg-surface-variant/30 border border-outline-variant/30 rounded-full text-on-surface-variant text-[10px] hover:border-primary/30 hover:text-primary transition-all"
+                    onClick={() => sendMessage()}
+                    disabled={loading || !input.trim()}
+                    className="bg-primary/20 hover:bg-primary/30 text-primary rounded-lg px-2 transition-all disabled:opacity-40"
                 >
-                  {p}
+                    <span className="material-symbols-outlined text-[15px]">send</span>
                 </button>
-              ))}
             </div>
-          </div>
-        ) : (
-          messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[90%] rounded-xl px-3 py-2 text-[11px] font-body-md leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-primary/20 text-on-surface rounded-br-sm'
-                    : 'bg-surface-variant/30 text-on-surface-variant rounded-bl-sm'
-                }`}
-              >
-                <pre className="whitespace-pre-wrap font-inherit" style={{ fontFamily: 'inherit' }}>
-                  {msg.content}
-                </pre>
-              </div>
-            </div>
-          ))
-        )}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-surface-variant/30 rounded-xl rounded-bl-sm px-3 py-2 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="flex-shrink-0 border-t border-outline-variant/20 p-2 flex gap-2">
-        <input
-          ref={inputRef}
-          className="flex-1 bg-black/20 border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface text-[11px] placeholder:text-outline focus:border-primary/50 focus:outline-none transition-all font-body-md"
-          placeholder="Ask AI about your code..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-          }}
-        />
-        <button
-          onClick={sendMessage}
-          disabled={loading || !input.trim()}
-          className="bg-primary/20 hover:bg-primary/30 text-primary rounded-lg px-2 transition-all disabled:opacity-40"
-        >
-          <span className="material-symbols-outlined text-[15px]">send</span>
-        </button>
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 // ── Team Chat Panel ───────────────────────────────────────────────────────────

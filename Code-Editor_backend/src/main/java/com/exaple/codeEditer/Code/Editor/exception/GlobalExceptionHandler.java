@@ -7,10 +7,16 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import lombok.extern.slf4j.Slf4j;
+
+
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
+   
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
@@ -19,10 +25,11 @@ public class GlobalExceptionHandler {
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message(ex.getMessage())
                         .timestamp(LocalDateTime.now())
-                        .build()
-        );
+                        .build());
     }
 
+    
+    
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
@@ -30,8 +37,7 @@ public class GlobalExceptionHandler {
                         .status(HttpStatus.BAD_REQUEST.value())
                         .message(ex.getMessage())
                         .timestamp(LocalDateTime.now())
-                        .build()
-        );
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)
