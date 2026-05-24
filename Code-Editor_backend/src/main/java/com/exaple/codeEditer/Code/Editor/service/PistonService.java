@@ -139,12 +139,13 @@ public class PistonService {
 
         if (output != null) {
             // JDoodle prefixes runtime errors with "JDoodle" or contains exception text
-            if (exitCode != 200 || output.contains("Exception") 
-                    || output.contains("Error") || output.contains("error")) {
-                stderr = output;
-            } else {
-                stdout = output;
-            }
+           if (exitCode == 200) {
+            stdout = output;
+            stderr = null;
+        } else {
+            stderr = output;
+            stdout = null;
+}
         }
 
         // statusCode 200 = success in JDoodle

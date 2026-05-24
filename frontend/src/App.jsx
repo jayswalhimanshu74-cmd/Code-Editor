@@ -16,6 +16,7 @@ import History from './pages/History/History';
 import Settings from './pages/Settings/Settings';
 import NotFound from './pages/NotFound/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import MobileGuard from './components/MobileGaurd';
 
 function App() {
   return (
@@ -32,7 +33,7 @@ function App() {
         <Route path="/create-room" element={<ProtectedRoute><CreateRoom /></ProtectedRoute>} />
         <Route path="/join-room" element={<ProtectedRoute><JoinRoom /></ProtectedRoute>} />
         <Route path="/room-lobby/:roomId" element={<ProtectedRoute><RoomLobby /></ProtectedRoute>} />
-        <Route path="/workspace/:roomId" element={<ProtectedRoute><EditorWorkspace /></ProtectedRoute>} />
+        <Route path="/workspace/:roomId" element={<ProtectedRoute><MobileGuard><EditorWorkspace /></MobileGuard></ProtectedRoute>} />
         <Route path="/files" element={<ProtectedRoute><FileManager /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

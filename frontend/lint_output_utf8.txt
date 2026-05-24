@@ -1,0 +1,154 @@
+﻿
+> code-editor-frontend@0.0.0 lint
+> eslint .
+
+
+D:\Projects\code editor\frontend\src\App.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\api\axios.js
+  59:37  error  'require' is not defined  no-undef
+
+D:\Projects\code editor\frontend\src\components\MobileGaurd.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\components\ProtectedRoute.jsx
+   1:8  error    'React' is defined but never used                                                                           no-unused-vars
+  13:8  warning  React Hook useEffect has a missing dependency: 'fetchMe'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\Projects\code editor\frontend\src\pages\CreateRoom\CreateRoom.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\Dashboard\Dashboard.jsx
+    1:8  error    'React' is defined but never used                                                                              no-unused-vars
+  260:6  warning  React Hook useEffect has a missing dependency: 'fetchRooms'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\Projects\code editor\frontend\src\pages\EditorWorkspace\EditorWorkspace.jsx
+    1:8   error    'React' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+  211:94  error    'onRun' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+  668:3   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  666 |   if(wsService.isConnected()) return;
+  667 |
+> 668 |   setWsStatus("connecting");
+      |   ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  669 |
+  670 |   wsService.connect(
+  671 |     () => setWsStatus(  "connected"),  react-hooks/set-state-in-effect
+  691:4   warning  React Hook useEffect has missing dependencies: 'user?.id' and 'user?.username'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  746:3   warning  React Hook useEffect has a missing dependency: 'wsStatus'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+
+D:\Projects\code editor\frontend\src\pages\FileManager\FileManager.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\History\History.jsx
+    1:8   error    'React' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+  145:8   warning  React Hook useEffect has a missing dependency: 'fetchRooms'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  150:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  148 |     useEffect(() => {
+  149 |         if (rooms.length > 0 && !selectedRoomId) {
+> 150 |             setSelectedRoomId(rooms[0].id);
+      |             ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  151 |         }
+  152 |     }, [rooms]);
+  153 |  react-hooks/set-state-in-effect
+  152:8   warning  React Hook useEffect has a missing dependency: 'selectedRoomId'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+
+D:\Projects\code editor\frontend\src\pages\JoinRoom\JoinRoom.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\Landing\Landing.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\Login\Login.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\NotFound\NotFound.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\Profile\Profile.jsx
+    1:8   error  'React' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+  154:45  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  152 |                   {Array.from({ length: 150 }).map((_, i) => {
+  153 |                     const intensities = ['bg-surface-container', 'bg-primary/20', 'bg-primary/40', 'bg-primary/60', 'bg-primary'];
+> 154 |                     const rand = Math.floor(Math.random() * 5);
+      |                                             ^^^^^^^^^^^^^ Cannot call impure function
+  155 |                     return <div key={i} className={`aspect-square rounded-sm ${intensities[rand]}`}></div>;
+  156 |                   })}
+  157 |                 </div>  react-hooks/purity
+
+D:\Projects\code editor\frontend\src\pages\Register\Register.jsx
+   1:8  error  'React' is defined but never used                  no-unused-vars
+  34:9  error  'displayError' is assigned a value but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\RoomLobby\RoomLobby.jsx
+  1:8  error  'React' is defined but never used              no-unused-vars
+  5:9  error  'navigate' is assigned a value but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\pages\Settings\Settings.jsx
+   1:8   error    'React' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+   1:38  error    'useRef' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-unused-vars
+  48:21  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  46 |
+  47 |     useEffect(() => {
+> 48 |         if (user) { setUsername(user.username || ''); setAvatarUrl(user.avatarUrl || ''); }
+     |                     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  49 |         else fetchMe();
+  50 |     }, [user]);
+  51 |                          react-hooks/set-state-in-effect
+  50:8   warning  React Hook useEffect has a missing dependency: 'fetchMe'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  59:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  57 |         if (/[0-9]/.test(newPassword)) s++;
+  58 |         if (/[^A-Za-z0-9]/.test(newPassword)) s++;
+> 59 |         setPwStrength(s);
+     |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  60 |     }, [newPassword]);
+  61 |
+  62 |     const handleSaveProfile = async () => {  react-hooks/set-state-in-effect
+
+D:\Projects\code editor\frontend\src\store\authStore.js
+  58:18  error  '_' is defined but never used  no-unused-vars
+  74:18  error  '_' is defined but never used  no-unused-vars
+
+D:\Projects\code editor\frontend\src\store\roomStore.js
+  16:14  error  'err' is defined but never used                                 no-unused-vars
+  29:7   error  There is no `cause` attached to the symptom error being thrown  preserve-caught-error
+  44:7   error  There is no `cause` attached to the symptom error being thrown  preserve-caught-error
+  54:7   error  There is no `cause` attached to the symptom error being thrown  preserve-caught-error
+
+D:\Projects\code editor\frontend\tailwind.config.js
+  94:5  error  'require' is not defined  no-undef
+  95:5  error  'require' is not defined  no-undef
+
+Γ£û 41 problems (34 errors, 7 warnings)
+

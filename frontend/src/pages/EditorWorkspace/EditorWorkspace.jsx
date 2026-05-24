@@ -65,15 +65,65 @@ const languageColor = (lang) => {
 };
 
 // ── User Avatar ───────────────────────────────────────────────────────────────
-const UserAvatar = ({ user }) => (
-  <div
-    className="w-6 h-6 rounded-full bg-primary/20 border-2 border-surface-container-lowest flex items-center justify-center text-primary font-bold text-xs relative flex-shrink-0"
-    title={user?.username}
-  >
-    {user?.username?.[0]?.toUpperCase() || 'U'}
-    <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-green-400 rounded-full border border-surface-container-lowest" />
-  </div>
-);
+const UserAvatar = ({ user, isCurrentUser = false }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    return (
+        <div
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+        >
+            <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: isCurrentUser
+                    ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
+                    : 'rgba(99,102,241,0.2)',
+                border: `2px solid ${isCurrentUser ? '#6366f1' : 'rgba(99,102,241,0.3)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700,
+                color: isCurrentUser ? '#fff' : '#818cf8',
+                flexShrink: 0, position: 'relative',
+                cursor: 'default',
+            }}>
+                {user?.username?.[0]?.toUpperCase() || 'U'}
+
+                {/* Green dot */}
+                <span style={{
+                    position: 'absolute', bottom: -1, right: -1,
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: '#22c55e',
+                    border: '1.5px solid #0a0a0f',
+                }} />
+            </div>
+
+            {/* Tooltip */}
+            {showTooltip && (
+                <div style={{
+                    position: 'absolute', bottom: '110%', left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8, padding: '5px 10px',
+                    fontSize: 11, color: '#e8e8f0', whiteSpace: 'nowrap',
+                    zIndex: 100, pointerEvents: 'none',
+                }}>
+                    {user?.username}
+                    {isCurrentUser && (
+                        <span style={{ color: '#818cf8', marginLeft: 4 }}>(you)</span>
+                    )}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        marginTop: 3, fontSize: 9, color: '#4ade80',
+                    }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+                        Online
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 // ── File Tree ─────────────────────────────────────────────────────────────────
 const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelete }) => {
@@ -586,13 +636,14 @@ useEffect(() => {
         setFiles([file]);
         setActiveFile(file);
         setCode(file.content || "");
-
+        codeRef.current=file.content || "";
         return;
       }
 
       setFiles(data);
       setActiveFile(data[0]);
       setCode(data[0].content || "");
+      codeRef.current=data[0].content || "";
 
     } catch (err) {
       console.error(
@@ -781,6 +832,7 @@ useEffect(()=>{
   const handleFileSelect = (file) => {
     setActiveFile(file);
     setCode(file.content);
+    codeRef.current=file.content;
   };
 
  const handleFileCreate = async (filename) => {
@@ -829,7 +881,7 @@ useEffect(()=>{
       );
       }
   };
-  const handleRunWithCode = async (currentCode) => {
+const handleRunWithCode = async (currentCode) => {
     if (isRunning) return;
     setIsRunning(true);
     setOutput('');
@@ -838,17 +890,11 @@ useEffect(()=>{
     try {
         const { data } = await executionService.execute(
             roomId,
-            currentCode, // ✅ use passed code, not stale closure
+            currentCode,
             room?.language || 'javascript',
             stdin
         );
-
-        const result = data.stdout || data.stderr || 'No output';
-        setOutput(result);
-
-        if (data.exitCode !== 0 && data.stderr) {
-            console.warn('Program exited with error:', data.exitCode);
-        }
+        setOutput(data.stdout || data.stderr || 'No output');
     } catch (err) {
         setOutput('Failed to run: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -856,35 +902,13 @@ useEffect(()=>{
     }
 };
 
-// ✅ Keep original handleRun using ref too
-  const handleRun = async () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    setOutput('');
-    setRightTab('output');
-  
-   try {
-    const { data } = await executionService.execute(
-    roomId,
-    code,
-    room?.language || 'javascript',
-    stdin
-    );
-    // data = { stdout, stderr, exitCode, status }
-
-    const result = data.stdout || data.stderr || 'No output';
-    setOutput(result);
-    // Show error styling if exit code != 0
-    if (data.exitCode !== 0 && data.stderr) {
-        console.warn('Program exited with error:', data.exitCode);
-    }
-} catch (err) {
-    setOutput('Failed to run: ' + (err.response?.data?.message || err.message));
-} finally {
-    setIsRunning(false);
-}
+// ✅ Single handleRun — always reads from editor directly
+const handleRun = () => {
+    const currentCode = editorRef.current
+        ? editorRef.current.getValue()
+        : codeRef.current;
+    handleRunWithCode(currentCode);
 };
-
   const copyInviteCode = () => {
     if (room?.inviteCode) {
       navigator.clipboard.writeText(room.inviteCode);
@@ -962,22 +986,45 @@ useEffect(()=>{
         )}
 
         {/* Connected users */}
-        <div className="flex items-center -space-x-1.5 flex-shrink-0">
-          {connectedUsers.slice(0, 5).map((u) => (
-            <UserAvatar key={u.id} user={u} />
-          ))}
-          {connectedUsers.length > 5 && (
-            <div className="w-6 h-6 rounded-full bg-surface-variant border-2 border-surface-container-lowest flex items-center justify-center text-[9px] text-on-surface-variant font-bold">
-              +{connectedUsers.length - 5}
+        {/* Connected users */}
+<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    {/* Show count badge */}
+    {connectedUsers.length > 0 && (
+        <span style={{
+            fontSize: 10, color: 'rgba(255,255,255,0.4)',
+            marginRight: 4,
+        }}>
+            {connectedUsers.length} online
+        </span>
+    )}
+
+    <div className="flex items-center" style={{ gap: -4 }}>
+        {connectedUsers.slice(0, 5).map((u) => (
+            <UserAvatar
+                key={u.id}
+                user={u}
+                isCurrentUser={u.id === user?.id}
+            />
+        ))}
+        {connectedUsers.length > 5 && (
+            <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.08)',
+                border: '2px solid rgba(255,255,255,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700,
+            }}>
+                +{connectedUsers.length - 5}
             </div>
-          )}
-        </div>
+        )}
+    </div>
+</div>
 
         <div className="w-px h-5 bg-outline-variant/30 flex-shrink-0" />
 
         {/* Run button */}
         <button
-          onClick={handleRun}
+          onClick={handleRunWithCode}
           disabled={isRunning}
           className="flex items-center gap-1.5 bg-gradient-to-b from-[#22c55e] to-[#16a34a] text-white px-3 py-1 rounded-lg font-label-sm text-[11px] font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 shadow-lg flex-shrink-0"
         >
@@ -1049,20 +1096,25 @@ useEffect(()=>{
               value={code}
               onChange={handleCodeChange}
               theme="vs-dark"
-              onMount={(editor) => {
-                editorRef.current = editor;
-                editor.addCommand(
-                monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                    () => {
-                        handleRunWithCode(codeRef.current); 
-                    }
-                ); 
-                editor.onDidChangeCursorPosition((e) => {
-                  setCursor({
-                    line: e.position.lineNumber,
-                    col: e.position.column,
+              onMount={(editor, monaco) => {  // ✅ add monaco as second param
+              editorRef.current = editor;
+
+                  editor.addCommand(
+                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                      () => {
+                          // ✅ Get value DIRECTLY from editor — always latest, never stale
+                          const currentCode = editorRef.current.getValue();
+                          codeRef.current = currentCode;
+                          handleRunWithCode(currentCode);
+                      }
+                  );
+
+                  editor.onDidChangeCursorPosition((e) => {
+                      setCursor({
+                          line: e.position.lineNumber,
+                          col: e.position.column,
+                      });
                   });
-                });
               }}
               options={{
                 fontSize: 13,

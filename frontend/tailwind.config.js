@@ -92,6 +92,6 @@ export default {
   },
   plugins: [
     require('@tailwindcss/forms'),
-    require('@tailwindcss/container-queries')
+  require('@tailwindcss/container-queries')
   ],
 }
