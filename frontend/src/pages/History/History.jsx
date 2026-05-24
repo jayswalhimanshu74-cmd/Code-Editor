@@ -36,12 +36,22 @@ const statusColor = (status) => {
     return 'text-on-surface-variant bg-surface-variant/20';
 };
 
+// ── Helper ──────────────────────────────────────────────────────────────────
+const parseDate = (dateVal) => {
+    if (!dateVal) return null;
+    if (Array.isArray(dateVal)) {
+        const [y, m, d, h = 0, min = 0, s = 0] = dateVal;
+        return new Date(y, m - 1, d, h, min, s);
+    }
+    return new Date(dateVal);
+};
+
 // ── Execution Card ─────────────────────────────────────────────────────────────
 const ExecutionCard = ({ entry }) => {
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/20 hover:border-primary/20 transition-all">
+        <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/20 hover:border-primary/20 transition-all flex-shrink-0">
             {/* Header */}
             <div
                 className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface-variant/10 transition-colors"
@@ -65,7 +75,7 @@ const ExecutionCard = ({ entry }) => {
                     </span>
                     <span className="text-on-surface-variant text-[10px] hidden lg:block">
                         {entry.executedAt
-                            ? new Date(entry.executedAt).toLocaleString()
+                            ? parseDate(entry.executedAt).toLocaleString()
                             : '—'}
                     </span>
                     <span className="material-symbols-outlined text-[16px] text-on-surface-variant transition-transform" style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -119,7 +129,7 @@ const ExecutionCard = ({ entry }) => {
                         )}
                         {entry.executedAt && (
                             <span className="text-[10px] text-on-surface-variant ml-auto">
-                                {new Date(entry.executedAt).toLocaleString()}
+                                {parseDate(entry.executedAt).toLocaleString()}
                             </span>
                         )}
                     </div>
@@ -171,16 +181,18 @@ const History = () => {
         load();
     }, [selectedRoomId]);
 
-    // Filter by language or status
-    const filtered = history.filter((entry) => {
-        if (!filter) return true;
-        const q = filter.toLowerCase();
-        return (
-            entry.language?.toLowerCase().includes(q) ||
-            entry.status?.toLowerCase().includes(q) ||
-            entry.sourceCode?.toLowerCase().includes(q)
-        );
-    });
+    // Filter by language or status and sort by recent
+    const filtered = history
+        .filter((entry) => {
+            if (!filter) return true;
+            const q = filter.toLowerCase();
+            return (
+                entry.language?.toLowerCase().includes(q) ||
+                entry.status?.toLowerCase().includes(q) ||
+                entry.sourceCode?.toLowerCase().includes(q)
+            );
+        })
+        .sort((a, b) => parseDate(b.executedAt) - parseDate(a.executedAt));
 
     return (
         <div className="flex overflow-hidden h-screen">
@@ -223,7 +235,7 @@ const History = () => {
                 </header>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-md flex flex-col gap-3">
+                <div className="flex-1 min-h-0 overflow-y-auto p-md flex flex-col gap-3">
 
                     {/* Stats row */}
                     {history.length > 0 && (
