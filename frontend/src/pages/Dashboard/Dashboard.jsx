@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
+import Sidebar from '../../components/Sidebar';
 
 const LANGUAGES = [
   'javascript', 'typescript', 'python', 'java',
@@ -70,7 +71,7 @@ const CreateRoomModal = ({ onClose, onCreate }) => {
           <div className="flex flex-col gap-sm">
             <label className="font-label-sm text-label-sm text-on-surface-variant">Room name</label>
             <input
-              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface placeholder:text-outline focus:border-[#c0c1ff] focus:ring-0 focus:outline-none transition-all font-body-md text-body-md"
+              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface placeholder:text-outline focus:border-[#6366f1] focus:ring-0 focus:outline-none transition-all font-body-md text-body-md"
               placeholder="e.g. My Python Project"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -82,7 +83,7 @@ const CreateRoomModal = ({ onClose, onCreate }) => {
           <div className="flex flex-col gap-sm">
             <label className="font-label-sm text-label-sm text-on-surface-variant">Language</label>
             <select
-              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface focus:border-[#c0c1ff] focus:ring-0 focus:outline-none transition-all font-body-md text-body-md"
+              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface focus:border-[#6366f1] focus:ring-0 focus:outline-none transition-all font-body-md text-body-md"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
             >
@@ -147,7 +148,7 @@ const JoinRoomModal = ({ onClose, onJoin }) => {
           <div className="flex flex-col gap-sm">
             <label className="font-label-sm text-label-sm text-on-surface-variant">Invite code</label>
             <input
-              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface placeholder:text-outline focus:border-[#c0c1ff] focus:ring-0 focus:outline-none transition-all font-code-md text-body-md tracking-widest uppercase"
+              className="bg-black/20 border border-outline-variant/50 rounded-lg px-md py-sm text-on-surface placeholder:text-outline focus:border-[#6366f1] focus:ring-0 focus:outline-none transition-all font-code-md text-body-md tracking-widest uppercase"
               placeholder="e.g. AB3X9K2M"
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -275,38 +276,12 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background text-on-surface selection:bg-primary/30">
+    <div className="flex min-h-screen">
 
       {/* Sidebar */}
-      <aside className="hidden md:flex fixed h-screen left-0 w-sidebar-width bg-surface-container-lowest/90 backdrop-blur-lg border-r border-outline-variant/30 flex-col py-md gap-sm z-40">
-        <div className="px-md mb-lg">
-          <Link to="/" className="font-headline-md text-headline-md font-black text-primary">CodeEditor</Link>
-          <p className="font-label-sm text-label-sm text-on-surface-variant">{user?.username || 'My workspace'}</p>
-        </div>
-        <nav className="flex-grow">
-          <Link className="bg-primary-container/20 text-primary border-r-2 border-primary flex items-center px-md py-sm font-label-sm text-label-sm" to="/dashboard">
-            <span className="material-symbols-outlined mr-sm">folder_open</span>
-            My Rooms
-          </Link>
-          <Link className="text-on-surface-variant flex items-center px-md py-sm hover:bg-surface-variant/50 transition-colors font-label-sm text-label-sm" to="/history">
-            <span className="material-symbols-outlined mr-sm">history</span>
-            History
-          </Link>
-          <Link className="text-on-surface-variant flex items-center px-md py-sm hover:bg-surface-variant/50 transition-colors font-label-sm text-label-sm" to="/settings">
-            <span className="material-symbols-outlined mr-sm">settings</span>
-            Settings
-          </Link>
-        </nav>
-        <div className="px-md mt-auto space-y-sm border-t border-outline-variant/20 pt-md">
-          <button onClick={handleLogout}
-            className="w-full text-on-surface-variant flex items-center px-sm py-xs hover:bg-error/10 hover:text-error rounded transition-colors font-label-sm text-label-sm">
-            <span className="material-symbols-outlined mr-sm">logout</span>
-            Sign out
-          </button>
-        </div>
-      </aside>
+      <Sidebar />
 
-      <main className="md:ml-sidebar-width flex-grow min-h-screen flex flex-col">
+      <main className="flex-grow min-h-screen flex flex-col min-w-0">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 flex justify-between items-center w-full px-md h-16">
           <h1 className="font-headline-md text-headline-md text-on-surface">My Rooms</h1>

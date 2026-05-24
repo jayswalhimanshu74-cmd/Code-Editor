@@ -11,7 +11,7 @@ const useRoomStore = create((set) => ({
         try {
             const { data } = await roomService.getRooms();
             set({ rooms: data, isLoading: false });
-        } catch (err) {
+        } catch {
             set({ error: 'Failed to load rooms', isLoading: false });
         }
     },
@@ -23,7 +23,7 @@ const useRoomStore = create((set) => ({
             return data;
         } catch (err) {
             const message = err.response?.data?.message || 'Failed to create room';
-            throw new Error(message);
+            throw new Error(message, { cause: err });
         }
     },
 
@@ -38,7 +38,7 @@ const useRoomStore = create((set) => ({
             return data;
         } catch (err) {
             const message = err.response?.data?.message || 'Invalid invite code';
-            throw new Error(message);
+            throw new Error(message, { cause: err });
         }
     },
 
@@ -48,7 +48,7 @@ const useRoomStore = create((set) => ({
             set((state) => ({ rooms: state.rooms.filter((r) => r.id !== roomId) }));
         } catch (err) {
             const message = err.response?.data?.message || 'Failed to delete room';
-            throw new Error(message);
+            throw new Error(message, { cause: err });
         }
     },
 }));

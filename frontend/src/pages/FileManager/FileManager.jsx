@@ -363,7 +363,7 @@ const FileManager = () => {
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #c0c1ff;
+          background: #6366f1;
         }
       `}</style>
     </div>

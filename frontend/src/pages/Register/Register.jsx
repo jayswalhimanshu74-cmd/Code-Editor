@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate  } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 
@@ -13,6 +13,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
 
+  const [pwStrength, setPwStrength] = useState(0);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
@@ -26,7 +27,7 @@ const Register = () => {
       setLocalError('Password must be at least 6 characters');
       return;
     }
-    const [pwStrength, setPwStrength] = useState(0);
+    
 
     useEffect(() => {
         let s = 0;
@@ -76,7 +77,7 @@ const Register = () => {
               <div className="grid grid-cols-1 gap-md">
                 <div className="space-y-xs">
                   <label className="font-label-sm text-label-sm text-on-surface-variant ml-xs">Username</label>
-                  <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] transition-all group">
+                  <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] transition-all group">
                     <span className="material-symbols-outlined text-outline ml-md group-focus-within:text-primary">person</span>
                     <input className="bg-transparent border-none focus:ring-0 w-full text-body-md py-sm pr-md placeholder:text-outline/50" 
                     placeholder="Himanshu Jayswal"
@@ -93,7 +94,7 @@ const Register = () => {
               {/* Email */}
               <div className="space-y-xs">
                 <label className="font-label-sm text-label-sm text-on-surface-variant ml-xs">Email</label>
-                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] transition-all group">
+                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] transition-all group">
                   <span className="material-symbols-outlined text-outline ml-md group-focus-within:text-primary">mail</span>
                   <input className="bg-transparent border-none focus:ring-0 w-full text-body-md py-sm pr-md placeholder:text-outline/50"
                   placeholder="jaysalhimanshu122@gmail.com"
@@ -108,7 +109,7 @@ const Register = () => {
               {/* Password */}
               <div className="space-y-xs">
                 <label className="font-label-sm text-label-sm text-on-surface-variant ml-xs">Password</label>
-                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] transition-all group">
+                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] transition-all group">
                   <span className="material-symbols-outlined text-outline ml-md group-focus-within:text-primary">lock</span>
                   <input className="bg-transparent border-none focus:ring-0 w-full text-body-md py-sm pr-md placeholder:text-outline/50" 
                   placeholder="••••••••"
@@ -143,7 +144,7 @@ const Register = () => {
               {/* Confirm Password */}
               <div className="space-y-xs">
                 <label className="font-label-sm text-label-sm text-on-surface-variant ml-xs">Confirm Password</label>
-                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] transition-all group">
+                <div className="relative flex items-center bg-black/20 border border-outline-variant/50 rounded-lg focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] transition-all group">
                   <span className="material-symbols-outlined text-outline ml-md group-focus-within:text-primary">shield_lock</span>
                   <input className="bg-transparent border-none focus:ring-0 w-full text-body-md py-sm pr-md placeholder:text-outline/50" 
                   placeholder="••••••••"
