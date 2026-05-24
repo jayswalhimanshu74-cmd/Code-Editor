@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
 import { executionService } from '../../api/executionService';
+import Sidebar from '../../components/Sidebar';
 
 const LANGUAGE_LABELS = {
     javascript: 'JavaScript', typescript: 'TypeScript', python: 'Python',
@@ -182,38 +183,10 @@ const History = () => {
     });
 
     return (
-        <div className="flex overflow-hidden h-screen bg-background text-on-surface">
+        <div className="flex overflow-hidden h-screen">
 
             {/* Sidebar */}
-            <aside className="hidden md:flex flex-col h-full py-md bg-surface-container-lowest/90 backdrop-blur-2xl border-r border-outline-variant/20 w-[220px] z-50 shrink-0">
-                <div className="px-md mb-lg">
-                    <h1 className="font-headline-md text-headline-md font-black text-primary">CodeEditor</h1>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">{user?.username}</p>
-                </div>
-                <nav className="flex-1 space-y-1">
-                    <Link className="flex items-center gap-sm text-on-surface-variant hover:text-on-surface px-md py-sm hover:bg-white/5 transition-all" to="/dashboard">
-                        <span className="material-symbols-outlined">folder_open</span>
-                        <span className="font-label-sm text-label-sm">My Rooms</span>
-                    </Link>
-                    <Link className="flex items-center gap-sm bg-primary/10 text-primary border-r-2 border-primary px-md py-sm" to="/history">
-                        <span className="material-symbols-outlined">history</span>
-                        <span className="font-label-sm text-label-sm">History</span>
-                    </Link>
-                    <Link className="flex items-center gap-sm text-on-surface-variant hover:text-on-surface px-md py-sm hover:bg-white/5 transition-all" to="/settings">
-                        <span className="material-symbols-outlined">settings</span>
-                        <span className="font-label-sm text-label-sm">Settings</span>
-                    </Link>
-                </nav>
-                <div className="mt-auto pt-md border-t border-outline-variant/20 px-md">
-                    <button
-                        onClick={async () => { await logout(); window.location.href = '/login'; }}
-                        className="w-full text-on-surface-variant flex items-center gap-sm px-sm py-xs hover:bg-error/10 hover:text-error rounded transition-colors font-label-sm text-label-sm"
-                    >
-                        <span className="material-symbols-outlined">logout</span>
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <Sidebar />
 
             {/* Main */}
             <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">

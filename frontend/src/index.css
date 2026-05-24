@@ -29,5 +29,8 @@
 }
 
 body {
-  @apply bg-background text-on-surface font-body-md overflow-x-hidden;
+  @apply overflow-x-hidden;
+  background-color: #0a0a0f;
+  color: #e8e8f0;
+  font-family: 'Inter', sans-serif;
 }

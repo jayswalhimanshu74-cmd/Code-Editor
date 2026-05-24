@@ -13,7 +13,7 @@ const Landing = () => {
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#features">Features</a>
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#about">About</a>
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#pricing">Pricing</a>
-          </div>
+          </div>  
         </div>
         <div className="flex items-center gap-sm">
           <div className="hidden lg:flex items-center gap-sm mr-md">

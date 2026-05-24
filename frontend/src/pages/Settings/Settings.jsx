@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { userService } from '../../api/userService';
+import Sidebar from '../../components/Sidebar';
 
 const AVATAR_COLORS = [
     '#6366f1','#8b5cf6','#ec4899','#f43f5e',
@@ -103,8 +104,7 @@ const Settings = () => {
     ];
 
     const s = {
-        page:   { display:'flex', height:'100vh', overflow:'hidden', background:'#0a0a0f', color:'#e8e8f0', fontFamily:"'Inter',sans-serif" },
-        aside:  { width:220, flexShrink:0, display:'flex', flexDirection:'column', background:'rgba(255,255,255,0.02)', borderRight:'1px solid rgba(255,255,255,0.05)', padding:'0' },
+        page:   { display:'flex', height:'100vh', overflow:'hidden' },
         logo:   { padding:'24px 20px 20px', borderBottom:'1px solid rgba(255,255,255,0.05)' },
         logoTxt:{ fontSize:18, fontWeight:800, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-0.5px' },
         navLnk: (active) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 20px', textDecoration:'none', fontSize:13, color: active ? '#818cf8' : 'rgba(255,255,255,0.45)', background: active ? 'rgba(99,102,241,0.1)' : 'transparent', borderLeft: active ? '2px solid #6366f1' : '2px solid transparent', transition:'all 0.15s' }),
@@ -134,41 +134,7 @@ const Settings = () => {
         <div style={s.page}>
 
             {/* Sidebar */}
-            <aside style={s.aside}>
-                <div style={s.logo}>
-                    <div style={s.logoTxt}>CodeEditor</div>
-                    <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)', marginTop:3 }}>{user?.email}</div>
-                </div>
-
-                <nav style={{ padding:'12px 0', flex:1 }}>
-                    {navLinks.map(l => (
-                        <Link key={l.to} to={l.to} style={s.navLnk(l.active)}>
-                            <span className="material-symbols-outlined" style={{ fontSize:17 }}>{l.icon}</span>
-                            {l.label}
-                        </Link>
-                    ))}
-                </nav>
-
-                {/* User card */}
-                <div style={{ padding:'16px 20px', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-                        <div style={{ width:34, height:34, borderRadius:'50%', background: avatarUrl?.startsWith('http') ? 'transparent' : (avatarUrl || '#4f46e5'), display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden' }}>
-                            {avatarUrl?.startsWith('http')
-                                ? <img src={avatarUrl} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt="" />
-                                : initials}
-                        </div>
-                        <div style={{ minWidth:0 }}>
-                            <div style={{ fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.85)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{user?.username}</div>
-                            <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{user?.email}</div>
-                        </div>
-                    </div>
-                    <button style={{ ...s.btn('ghost', true), width:'100%', justifyContent:'center', fontSize:11 }}
-                        onClick={async () => { await logout(); navigate('/login'); }}>
-                        <span className="material-symbols-outlined" style={{ fontSize:15 }}>logout</span>
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <Sidebar />
 
             {/* Main */}
             <div style={s.main}>

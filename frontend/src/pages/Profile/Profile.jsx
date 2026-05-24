@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
 import { userService } from '../../api/userService';
+import Sidebar from '../../components/Sidebar';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -26,7 +27,7 @@ const Profile = () => {
         };
         load();
         fetchRooms();
-    }, []);
+    }, [user, fetchMe, fetchRooms]);
 
     const displayUser = profile || user;
     const initials = displayUser?.username?.[0]?.toUpperCase() || 'U';
@@ -35,8 +36,7 @@ const Profile = () => {
         : '—';
 
     const s = {
-        page:    { height: '100vh', display: 'flex', overflow: 'hidden', background: '#0a0a0f', color: '#e8e8f0', fontFamily: 'Inter, sans-serif' },
-        aside:   { width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.02)', borderRight: '1px solid rgba(255,255,255,0.05)' },
+        page:    { height: '100vh', display: 'flex', overflow: 'hidden' },
         main:    { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
         header:  { height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' },
         scroll:  { flex: 1, overflowY: 'auto', padding: 28 },
@@ -56,34 +56,7 @@ const Profile = () => {
         <div style={s.page}>
 
             {/* Sidebar */}
-            <aside style={s.aside}>
-                <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        CodeEditor
-                    </div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>{displayUser?.email}</div>
-                </div>
-                <nav style={{ padding: '12px 0', flex: 1 }}>
-                    {[
-                        { to: '/dashboard', icon: 'folder_open', label: 'My Rooms'  },
-                        { to: '/history',   icon: 'history',     label: 'History'   },
-                        { to: '/settings',  icon: 'settings',    label: 'Settings'  },
-                        { to: '/profile',   icon: 'person',      label: 'Profile', active: true },
-                    ].map(item => (
-                        <Link key={item.to} to={item.to} style={s.navLink(item.active)}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{item.icon}</span>
-                            {item.label}
-                        </Link>
-                    ))}
-                </nav>
-                <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <button onClick={async () => { await logout(); navigate('/login'); }}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', borderRadius: 8 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 17 }}>logout</span>
-                        Sign out
-                    </button>
-                </div>
-            </aside>
+            <Sidebar />
 
             {/* Main */}
             <div style={s.main}>

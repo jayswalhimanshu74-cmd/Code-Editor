@@ -62,7 +62,7 @@ const Login = () => {
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-sm">
               <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="email">Email Address</label>
-              <div className="relative group focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
+              <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
                 <span className="material-symbols-outlined text-outline text-[20px] mr-sm">mail</span>
                 <input
                   className="bg-transparent border-none focus:ring-0 w-full text-on-surface placeholder:text-outline font-body-md text-body-md"
@@ -78,7 +78,7 @@ const Login = () => {
 
             <div className="flex flex-col gap-sm">
               <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="password">Password</label>
-              <div className="relative group focus-within:border-[#c0c1ff] focus-within:shadow-[0_0_0_2px_rgba(192,193,255,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
+              <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
                 <span className="material-symbols-outlined text-outline text-[20px] mr-sm">lock</span>
                 <input
                   className="bg-transparent border-none focus:ring-0 w-full text-on-surface placeholder:text-outline font-body-md text-body-md"
