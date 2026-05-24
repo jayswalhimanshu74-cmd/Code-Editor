@@ -126,7 +126,7 @@ const UserAvatar = ({ user, isCurrentUser = false }) => {
 };
 
 // ── File Tree ─────────────────────────────────────────────────────────────────
-const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelete }) => {
+const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelete, language }) => {
   const [newFileName, setNewFileName] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -166,14 +166,14 @@ const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelet
               if (e.key === 'Enter') handleCreate();
               if (e.key === 'Escape') { setCreating(false); setNewFileName(''); }
             }}
-            placeholder="filename.js"
+            placeholder={`filename.${EXTENSIONS[language] || 'js'}`}
             className="flex-1 bg-transparent border-b border-primary/60 text-on-surface text-[11px] focus:outline-none font-code-md py-0.5"
           />
         </div>
       )}
 
       {/* File list */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 min-h-0 overflow-y-auto py-1">
         {files.length === 0 ? (
           <p className="text-center text-on-surface-variant text-[11px] px-3 py-6 opacity-50">
             No files yet
@@ -248,7 +248,7 @@ const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, s
         )}
 
         {/* Output */}
-        <div className="flex-1 overflow-y-auto p-3 bg-black/30">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 bg-black/30">
             {isRunning ? (
                 <div className="flex items-center gap-2 text-on-surface-variant text-[11px] font-code-md">
                     <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
@@ -348,7 +348,7 @@ const AIPanel = ({ code, language }) => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
@@ -483,7 +483,7 @@ const ChatPanel = ({ roomId, user }) => {
   return (
     <div className="h-full flex flex-col overflow-hidden">
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
 
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
@@ -627,8 +627,8 @@ useEffect(() => {
       if (!data || data.length === 0) {
         const created = await fileService.createFile(
           roomId,
-          "main.js",
-          "// Start coding!"
+          `main.${EXTENSIONS[language] || 'js'}`,
+          defaultContent
         );
 
         const file = created.data;
@@ -835,14 +835,18 @@ useEffect(()=>{
     codeRef.current=file.content;
   };
 
- const handleFileCreate = async (filename) => {
- 
+ const handleFileCreate = async (rawFilename) => {
+    let filename = rawFilename.trim();
+    const ext = EXTENSIONS[language] || 'js';
+    if (!filename.includes('.')) {
+        filename = `${filename}.${ext}`;
+    }
     try{  
       const {data:file} =
           await fileService.createFile(
             roomId,
             filename,
-            STARTER_CODE[language]
+            STARTER_CODE[language] || ''
           );
       setFiles(prev=>[
           ...prev,
@@ -1051,6 +1055,7 @@ const handleRun = () => {
                 onFileSelect={handleFileSelect}
                 onFileCreate={handleFileCreate}
                 onFileDelete={handleFileDelete}
+                language={language}
               />
             </aside>
 
