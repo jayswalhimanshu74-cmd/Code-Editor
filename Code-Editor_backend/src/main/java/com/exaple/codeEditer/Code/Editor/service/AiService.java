@@ -28,9 +28,7 @@ public class AiService {
 
   public String chat(AiChatRequest request) {
     
-    log.info("API KEY present: {}", geminiApiKey != null && !geminiApiKey.isBlank());
-    log.info("API KEY value: '{}'", geminiApiKey); // shows exact value with quotes
-    log.info("API URL: {}", geminiApiUrl);
+    
     try {
         
         String prompt = buildPrompt(request);
@@ -51,9 +49,7 @@ public class AiService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         String url = geminiApiUrl + "?key=" + geminiApiKey;
- ;
-        log.info("Calling Gemini URL: {}", url);  // ✅ log the full URL
-
+ 
         ResponseEntity<String> response = restTemplate.postForEntity(
             url,
             new HttpEntity<>(body, headers),

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { authService } from '../api/authService';
+import { wsService } from './websocketService';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL + '/api',
@@ -56,7 +57,6 @@ api.interceptors.response.use(
                 // Refresh failed — force logout
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
-                const {wsService} = require('../api/websocketService');
                 wsService.disconnect();
                 window.location.href = '/login';
                 return Promise.reject(refreshError);

@@ -26,6 +26,17 @@ const Register = () => {
       setLocalError('Password must be at least 6 characters');
       return;
     }
+    const [pwStrength, setPwStrength] = useState(0);
+
+    useEffect(() => {
+        let s = 0;
+        if (password.length >= 6) s++;
+        if (password.length >= 10) s++;
+        if (/[A-Z]/.test(password)) s++;
+        if (/[0-9]/.test(password)) s++;
+        if (/[^A-Za-z0-9]/.test(password)) s++;
+        setPwStrength(s);
+    }, [password]);
 
     const success = await register(username, email, password);
     if (success) navigate('/login');
@@ -86,7 +97,7 @@ const Register = () => {
                   <span className="material-symbols-outlined text-outline ml-md group-focus-within:text-primary">mail</span>
                   <input className="bg-transparent border-none focus:ring-0 w-full text-body-md py-sm pr-md placeholder:text-outline/50"
                   placeholder="jaysalhimanshu122@gmail.com"
-                  type="text"
+                  type="email"
                   value={email}
                   required
                   onChange={(e) => setEmail(e.target.value)}
@@ -115,9 +126,17 @@ const Register = () => {
                 {/* Strength Indicator */}
                 <div className="pt-xs flex items-center gap-xs">
                   <div className="h-1 flex-grow rounded-full bg-surface-container-highest overflow-hidden">
-                    <div className="h-full bg-secondary-container w-[65%]"></div>
+                   <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                            width: `${(pwStrength / 5) * 100}%`,
+                            background: ['#ef4444','#ef4444','#f97316','#eab308','#22c55e','#14b8a6'][pwStrength],
+                        }}
+                        />
+                    <span className="font-label-sm text-[10px] uppercase" style={{ color: ['#ef4444','#ef4444','#f97316','#eab308','#22c55e','#14b8a6'][pwStrength] }}>
+                        {['','Weak','Weak','Fair','Strong','Very Strong'][pwStrength]}
+                    </span> 
                   </div>
-                  <span className="font-label-sm text-[10px] uppercase text-secondary">Strong</span>
                 </div>
               </div>
               
