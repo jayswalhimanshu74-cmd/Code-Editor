@@ -23,10 +23,11 @@ export const executionService = {
         });
     },
 
-// GET /api/rooms/{roomId}/executions
-// Returns last 10 executions for the History page
+// GET /api/rooms/{roomId}/executions?page=0&size=20
+// Returns paginated execution history
 
-
-getHistory: (roomId) =>
-api.get(`/rooms/${roomId}/executions`),
+getHistory: (roomId, page = 0, size = 20) =>
+api.get(`/rooms/${roomId}/executions`, {
+    params: { page, size }
+}),
 };
