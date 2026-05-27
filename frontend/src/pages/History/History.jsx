@@ -143,7 +143,10 @@ const ExecutionCard = ({ entry }) => {
 const History = () => {
     const { user, logout } = useAuthStore();
     const { rooms, fetchRooms } = useRoomStore();
-
+    const [page, setPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+    
     const [selectedRoomId, setSelectedRoomId] = useState('');
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -161,16 +164,17 @@ const History = () => {
             setSelectedRoomId(rooms[0].id);
         }
     }, [rooms]);
-
-    // Fetch history when room changes
+    // Fetch history when room or page changes
     useEffect(() => {
         if (!selectedRoomId) return;
         const load = async () => {
             setIsLoading(true);
             setError('');
             try {
-                const { data } = await executionService.getHistory(selectedRoomId);
-                setHistory(data);
+                const { data } = await executionService.getHistory(selectedRoomId, page, 20);
+                setHistory(data.content);
+                setTotalPages(data.totalPages);
+                setTotalElements(data.totalElements);
             } catch (err) {
                 setError('Failed to load history');
                 console.error(err);
@@ -179,7 +183,7 @@ const History = () => {
             }
         };
         load();
-    }, [selectedRoomId]);
+    }, [selectedRoomId, page]);
 
     // Filter by language or status and sort by recent
     const filtered = history
@@ -211,7 +215,10 @@ const History = () => {
                         {/* Room selector */}
                         <select
                             value={selectedRoomId}
-                            onChange={(e) => setSelectedRoomId(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedRoomId(e.target.value);
+                                setPage(0);
+                            }}
                             className="bg-black/20 border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface text-[11px] focus:border-primary/50 focus:outline-none transition-all max-w-[180px]"
                         >
                             {rooms.map((r) => (
@@ -241,7 +248,7 @@ const History = () => {
                     {history.length > 0 && (
                         <div className="flex gap-3 flex-wrap mb-1">
                             {[
-                                { label: 'Total Runs', value: history.length, icon: 'play_circle' },
+                                { label: 'Total Runs', value: totalElements, icon: 'play_circle' },
                                 { label: 'Accepted', value: history.filter(h => h.status === 'Accepted').length, icon: 'check_circle', color: 'text-green-400' },
                                 { label: 'Errors', value: history.filter(h => h.status !== 'Accepted').length, icon: 'error', color: 'text-red-400' },
                                 { label: 'Avg Time', value: history.length ? `${Math.round(history.reduce((a, b) => a + (b.durationMs || 0), 0) / history.length)}ms` : '—', icon: 'timer' },
@@ -288,9 +295,34 @@ const History = () => {
                             </p>
                         </div>
                     ) : (
-                        filtered.map((entry, i) => (
-                            <ExecutionCard key={entry.id || i} entry={entry} />
-                        ))
+                        <>
+                            {filtered.map((entry, i) => (
+                                <ExecutionCard key={entry.id || i} entry={entry} />
+                            ))}
+                            {totalPages > 1 && !isLoading && !error && selectedRoomId && (
+                                <div className="flex gap-2 justify-center mt-2 pb-2">
+                                    <button
+                                        disabled={page === 0}
+                                        onClick={() => setPage(p => p - 1)}
+                                        className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface text-[11px] hover:bg-surface-variant/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                                        Previous
+                                    </button>
+                                    <span className="text-on-surface-variant text-[11px] self-center px-2">
+                                        Page {page + 1} of {totalPages}
+                                    </span>
+                                    <button
+                                        disabled={page >= totalPages - 1}
+                                        onClick={() => setPage(p => p + 1)}
+                                        className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface text-[11px] hover:bg-surface-variant/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                                    >
+                                        Next
+                                        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

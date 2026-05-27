@@ -3,6 +3,8 @@ package com.exaple.codeEditer.Code.Editor.service;
 import com.exaple.codeEditer.Code.Editor.dto.ai.AiChatRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import com.exaple.codeEditer.Code.Editor.config.RestTemplateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class AiService {
 
@@ -23,8 +26,8 @@ public class AiService {
     private String geminiApiUrl;
 
      
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate ;
+    private final ObjectMapper objectMapper;
 
   public String chat(AiChatRequest request) {
     

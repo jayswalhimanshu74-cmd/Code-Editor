@@ -9,12 +9,17 @@ import com.exaple.codeEditer.Code.Editor.entity.ExecutionHistory;
 import com.exaple.codeEditer.Code.Editor.entity.Room;
 import com.exaple.codeEditer.Code.Editor.repository.ExecutionHistoryRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
+import com.exaple.codeEditer.Code.Editor.repository.RoomMemberRepository;
 import com.exaple.codeEditer.Code.Editor.service.PistonService;
+import com.exaple.codeEditer.Code.Editor.service.RateLimitService;
 
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,8 +38,10 @@ public class ExecutionController {
 
     private final PistonService pistonService;
     private final ExecutionHistoryRepository executionHistoryRepository;
+    private final RoomMemberRepository roomMemberRepository;
     private final RoomRepository roomRepository;
     private static final Logger logger = LoggerFactory.getLogger(ExecutionController.class);
+    private final RateLimitService rateLimitService;
 
     @PostMapping("/execute")
     public ResponseEntity<ExecuteResponse> execute(
@@ -46,7 +53,14 @@ public class ExecutionController {
     if (userDetails == null) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
-    
+
+    if (!rateLimitService.allowExecution(userDetails.getUsername())) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+    }
+    boolean isMember = roomMemberRepository.existsByRoomIdAndUserEmail(roomId, userDetails.getUsername());
+    if (!isMember) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
         return ResponseEntity.ok(
                 pistonService.execute(roomId, request, userDetails.getUsername())
         );
@@ -54,40 +68,36 @@ public class ExecutionController {
 
    @Transactional
 @GetMapping("/executions")
-public ResponseEntity<List<ExecutionHistoryDTO>> getHistory(
+public ResponseEntity<Page<ExecutionHistoryDTO>> getHistory(
         @PathVariable UUID roomId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
         @AuthenticationPrincipal UserDetails userDetails) {
 
-    Room room = roomRepository.findById(roomId)
+      Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RuntimeException("Room not found"));
+      Pageable pageable = PageRequest.of(page, Math.min(size, 50)); // cap at 50
 
-    List<ExecutionHistory> histories =
-            executionHistoryRepository.findTop10ByRoomOrderByExecutedAtDesc(room);
-
-    List<ExecutionHistoryDTO> dtos = histories.stream()
-            .map(h -> ExecutionHistoryDTO.builder()
-                    .id(h.getId())
-                    .language(h.getLanguage())
-                    .sourceCode(h.getSourceCode())
-                    .stdout(h.getStdout())
-                    .stderr(h.getStderr())
-                    .exitCode(h.getExitCode())
-                    .durationMs(h.getDurationMs())
-                    .executedAt(h.getExecutedAt())
-                    .status(h.getExitCode() != null && h.getExitCode() == 0
-                            ? "Accepted" : "Runtime Error")
-                    .runByUsername(h.getRunBy() != null
-                            ? h.getRunBy().getUsername() : null)
-                    .runByEmail(h.getRunBy() != null
-                            ? h.getRunBy().getEmail() : null)
-                    .roomId(h.getRoom() != null
-                            ? h.getRoom().getId() : null)
-                    .roomName(h.getRoom() != null
-                            ? h.getRoom().getName() : null)
-                    .build()
-            )
-            .toList();
+    Page<ExecutionHistory> histories =
+             executionHistoryRepository.findByRoomOrderByExecutedAtDesc(room, pageable);
+ 
+    Page<ExecutionHistoryDTO> dtos = histories.map(h -> ExecutionHistoryDTO.builder()
+            .id(h.getId())
+            .language(h.getLanguage())
+            .sourceCode(h.getSourceCode())
+            .stdout(h.getStdout())
+            .stderr(h.getStderr())
+            .exitCode(h.getExitCode())
+            .durationMs(h.getDurationMs())
+            .executedAt(h.getExecutedAt())
+            .status(h.getExitCode() != null && h.getExitCode() == 0 ? "Accepted" : "Runtime Error")
+            .runByUsername(h.getRunBy() != null ? h.getRunBy().getUsername() : null)
+            .runByEmail(h.getRunBy() != null ? h.getRunBy().getEmail() : null)
+            .roomId(h.getRoom() != null ? h.getRoom().getId() : null)
+            .roomName(h.getRoom() != null ? h.getRoom().getName() : null)
+            .build()
+    );
 
     return ResponseEntity.ok(dtos);
-  }
+}
 }
