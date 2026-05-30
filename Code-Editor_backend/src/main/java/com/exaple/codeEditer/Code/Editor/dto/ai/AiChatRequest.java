@@ -10,6 +10,7 @@ public class AiChatRequest {
     private List<Message> messages;
     private String code;
     private String language;
+    private String roomId; 
 
     @Data
     public static class Message {
