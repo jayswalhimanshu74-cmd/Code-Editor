@@ -63,6 +63,15 @@ const languageColor = (lang) => {
   };
   return map[lang] || 'text-on-surface-variant bg-surface-variant/30';
 };
+const CURSOR_COLORS = [
+    '#f472b6', '#60a5fa', '#34d399', '#fbbf24',
+    '#a78bfa', '#fb923c', '#38bdf8', '#4ade80',
+];
+const getCursorColor = (email) => {
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
+    return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
+};
 
 // ── User Avatar ───────────────────────────────────────────────────────────────
 const UserAvatar = ({ user, isCurrentUser = false }) => {
@@ -271,7 +280,7 @@ const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, s
 );
 
 // ── AI Chat Panel ─────────────────────────────────────────────────────────────
-const AIPanel = ({ code, language }) => {
+const AIPanel = ({ code, language,roomId }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -297,6 +306,7 @@ const AIPanel = ({ code, language }) => {
                 messages: updatedMessages,
                 code,
                 language,
+                roomId,
             });
 
             setMessages((prev) => [
@@ -586,6 +596,10 @@ const EditorWorkspace = () => {
   const [activeFile, setActiveFile] = useState(initialFile);
   const [code, setCode] = useState(defaultContent);
 
+  const remoteCursors = useRef({});           // { email: { line, col, username, color } }
+const decorationsRef = useRef([]);          // Monaco decoration IDs
+const monacoRef = useRef(null);             // monaco instance ref
+
 
   // UI state
   const [rightTab, setRightTab] = useState('ai');
@@ -786,6 +800,44 @@ useEffect(()=>{
 
 },[roomId]);
 
+// ── Remote cursor subscription ──────────────────────────────────────────
+useEffect(() => {
+    if (wsStatus !== 'connected') return;
+
+    const unsub = wsService.subscribe(
+        `/topic/room/${roomId}/cursors`,
+        (event) => {
+            // Ignore our own cursor
+            if (event.email === userRef.current?.email) return;
+
+            // Update remote cursor map
+            remoteCursors.current[event.email] = {
+                line: event.line,
+                column: event.column,
+                username: event.username,
+                color: event.color,
+            };
+
+            renderCursorDecorations();
+        }
+    );
+
+    return () => unsub();
+}, [wsStatus, roomId]);
+
+// Remove cursor when a user leaves
+useEffect(() => {
+    // Listen on presence events already handled by connectedUsers
+    // Clean up stale cursors for users no longer in room
+    const emails = connectedUsers.map(u => u.email);
+    Object.keys(remoteCursors.current).forEach(email => {
+        if (!emails.includes(email)) {
+            delete remoteCursors.current[email];
+        }
+    });
+    renderCursorDecorations();
+}, [connectedUsers]);
+
 
   // ── Resize handles ──
   const startResize = useCallback(
@@ -930,6 +982,68 @@ const handleRun = () => {
     disconnected: 'bg-red-400',
   }[wsStatus];
 
+  const renderCursorDecorations = useCallback(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+
+    const newDecorations = Object.entries(remoteCursors.current).map(
+        ([email, { line, column, username, color }]) => ({
+            range: new monaco.Range(line, column, line, column),
+            options: {
+                className: `remote-cursor-${email.replace(/[@.]/g, '-')}`,
+                beforeContentClassName: `remote-cursor-label`,
+                stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                // Inline cursor line
+                afterContentClassName: undefined,
+                // We use a CSS class injected below
+                zIndex: 10,
+                // Store color for CSS injection
+                hoverMessage: { value: `**${username}**` },
+            },
+        })
+    );
+
+    // Inject CSS for each cursor
+    Object.entries(remoteCursors.current).forEach(([email, { color, username }]) => {
+        const safeEmail = email.replace(/[@.]/g, '-');
+        const styleId = `cursor-style-${safeEmail}`;
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                .remote-cursor-${safeEmail} {
+                    border-left: 2px solid ${color};
+                    margin-left: -1px;
+                    position: relative;
+                }
+                .remote-cursor-${safeEmail}::before {
+                    content: '${username.replace(/'/g, "\\'")}';
+                    position: absolute;
+                    top: -18px;
+                    left: -1px;
+                    background: ${color};
+                    color: #000;
+                    font-size: 10px;
+                    font-weight: 600;
+                    padding: 1px 5px;
+                    border-radius: 3px 3px 3px 0;
+                    white-space: nowrap;
+                    pointer-events: none;
+                    font-family: sans-serif;
+                    line-height: 16px;
+                    z-index: 100;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    });
+
+    decorationsRef.current = editor.deltaDecorations(
+        decorationsRef.current,
+        newDecorations
+    );
+}, []);
   return (
     <div className="flex flex-col h-screen bg-background text-on-surface overflow-hidden select-none">
 
@@ -1101,26 +1215,41 @@ const handleRun = () => {
               value={code}
               onChange={handleCodeChange}
               theme="vs-dark"
-              onMount={(editor, monaco) => {  // ✅ add monaco as second param
+             onMount={(editor, monaco) => {
               editorRef.current = editor;
+              monacoRef.current = monaco;     
 
-                  editor.addCommand(
-                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                      () => {
-                          // ✅ Get value DIRECTLY from editor — always latest, never stale
-                          const currentCode = editorRef.current.getValue();
-                          codeRef.current = currentCode;
-                          handleRunWithCode(currentCode);
-                      }
-                  );
+              editor.addCommand(
+                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                  () => {
+                      const currentCode = editorRef.current.getValue();
+                      codeRef.current = currentCode;
+                      handleRunWithCode(currentCode);
+                  }
+              );
 
-                  editor.onDidChangeCursorPosition((e) => {
-                      setCursor({
-                          line: e.position.lineNumber,
-                          col: e.position.column,
-                      });
-                  });
-              }}
+              // ── Cursor publish ──────────────────────────────────
+              editor.onDidChangeCursorPosition((e) => {
+                  setCursor({ line: e.position.lineNumber, col: e.position.column });
+
+                  // Throttle: only publish every 80ms
+                  if (!editor._cursorThrottle) {
+                      editor._cursorThrottle = setTimeout(() => {
+                          editor._cursorThrottle = null;
+                          if (wsService.isConnected() && userRef.current) {
+                              wsService.publish(`/app/room/${roomId}/cursor`, {
+                                  userId: userRef.current.id,
+                                  username: userRef.current.username,
+                                  email: userRef.current.email,
+                                  color: getCursorColor(userRef.current.email),
+                                  line: e.position.lineNumber,
+                                  column: e.position.column,
+                              });
+                          }
+                      }, 80);
+                  }
+              });
+          }}
               options={{
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
@@ -1186,7 +1315,7 @@ const handleRun = () => {
           {/* Tab content */}
           <div className="flex-1 overflow-hidden">
             {rightTab === 'ai' && (
-              <AIPanel code={code} language={language} />
+              <AIPanel code={code} language={language} roomId={roomId} />
             )}
            {rightTab === 'output' && (
             <OutputPanel

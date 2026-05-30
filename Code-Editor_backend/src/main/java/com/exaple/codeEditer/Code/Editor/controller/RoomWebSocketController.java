@@ -2,9 +2,9 @@ package com.exaple.codeEditer.Code.Editor.controller;
 
 import com.exaple.codeEditer.Code.Editor.dto.ws.ChatEvent;
 import com.exaple.codeEditer.Code.Editor.dto.ws.CodeChangeEvent;
+import com.exaple.codeEditer.Code.Editor.dto.ws.CursorEvent;
 import com.exaple.codeEditer.Code.Editor.dto.ws.UserJoinLeaveEvent;
 import com.exaple.codeEditer.Code.Editor.entity.ChatMessage;
-import com.exaple.codeEditer.Code.Editor.entity.Room;
 import com.exaple.codeEditer.Code.Editor.repository.ChatMessageRepository;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
@@ -119,4 +119,15 @@ public class RoomWebSocketController {
 
         log.info("User {} left room {}", event.getUsername(), roomId);
     }
+    @MessageMapping("/room/{roomId}/cursor")
+    public void handleCursor(
+            @DestinationVariable String roomId,
+            @Payload CursorEvent event) {
+
+        event.setTimestamp(System.currentTimeMillis());
+
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomId + "/cursors", event
+    );
+}
 }
