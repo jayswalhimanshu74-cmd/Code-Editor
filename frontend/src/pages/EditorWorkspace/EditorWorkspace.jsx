@@ -63,15 +63,6 @@ const languageColor = (lang) => {
   };
   return map[lang] || 'text-on-surface-variant bg-surface-variant/30';
 };
-const CURSOR_COLORS = [
-    '#f472b6', '#60a5fa', '#34d399', '#fbbf24',
-    '#a78bfa', '#fb923c', '#38bdf8', '#4ade80',
-];
-const getCursorColor = (email) => {
-    let hash = 0;
-    for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
-    return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
-};
 
 // ── User Avatar ───────────────────────────────────────────────────────────────
 const UserAvatar = ({ user, isCurrentUser = false }) => {
@@ -135,9 +126,11 @@ const UserAvatar = ({ user, isCurrentUser = false }) => {
 };
 
 // ── File Tree ─────────────────────────────────────────────────────────────────
-const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelete, language }) => {
+const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelete, onFileRename, language }) => {
   const [newFileName, setNewFileName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const handleCreate = () => {
     if (!newFileName.trim()) return;
@@ -146,6 +139,21 @@ const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelet
     setCreating(false);
   };
 
+  const startRename = (file, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRenamingId(file.id);
+    setRenameValue(file.name);
+  };
+
+  const commitRename = (file) => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== file.name) {
+      onFileRename(file.id, trimmed);
+    }
+    setRenamingId(null);
+    setRenameValue('');
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -175,6 +183,7 @@ const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelet
               if (e.key === 'Enter') handleCreate();
               if (e.key === 'Escape') { setCreating(false); setNewFileName(''); }
             }}
+            onBlur={() => { if (!newFileName.trim()) setCreating(false); }}
             placeholder={`filename.${EXTENSIONS[language] || 'js'}`}
             className="flex-1 bg-transparent border-b border-primary/60 text-on-surface text-[11px] focus:outline-none font-code-md py-0.5"
           />
@@ -191,23 +200,52 @@ const FileTree = ({ files, activeFileId, onFileSelect, onFileCreate, onFileDelet
           files.map((file) => (
             <div
               key={file.id}
-              onClick={() => onFileSelect(file)}
-              className={`group flex items-center justify-between px-3 py-1 cursor-pointer transition-all hover:bg-surface-variant/20 ${
+              onClick={() => renamingId !== file.id && onFileSelect(file)}
+              className={`group flex items-center justify-between px-3 py-1.5 cursor-pointer transition-all hover:bg-surface-variant/20 ${
                 activeFileId === file.id
                   ? 'bg-primary/10 text-primary border-r-2 border-primary'
                   : 'text-on-surface-variant'
               }`}
             >
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
                 <span className="material-symbols-outlined text-[13px] flex-shrink-0 opacity-70">description</span>
-                <span className="font-code-md text-[11px] truncate">{file.name}</span>
+
+                {renamingId === file.id ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitRename(file); }
+                      if (e.key === 'Escape') { setRenamingId(null); setRenameValue(''); }
+                    }}
+                    onBlur={() => commitRename(file)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 bg-surface-container border border-primary/60 rounded px-1.5 text-on-surface text-[11px] focus:outline-none font-code-md py-0.5 min-w-0"
+                  />
+                ) : (
+                  <span className="font-code-md text-[11px] truncate">{file.name}</span>
+                )}
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); onFileDelete(file.id); }}
-                className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all p-0.5 flex-shrink-0"
-              >
-                <span className="material-symbols-outlined text-[12px]">close</span>
-              </button>
+
+              {renamingId !== file.id && (
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                  <button
+                    title="Rename"
+                    onClick={(e) => startRename(file, e)}
+                    className="p-0.5 rounded text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">edit</span>
+                  </button>
+                  <button
+                    title="Delete"
+                    onClick={(e) => { e.stopPropagation(); onFileDelete(file.id); }}
+                    className="p-0.5 rounded text-on-surface-variant hover:text-error hover:bg-error/10 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">delete</span>
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -280,7 +318,7 @@ const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, s
 );
 
 // ── AI Chat Panel ─────────────────────────────────────────────────────────────
-const AIPanel = ({ code, language,roomId }) => {
+const AIPanel = ({ code, language }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -306,7 +344,6 @@ const AIPanel = ({ code, language,roomId }) => {
                 messages: updatedMessages,
                 code,
                 language,
-                roomId,
             });
 
             setMessages((prev) => [
@@ -596,10 +633,6 @@ const EditorWorkspace = () => {
   const [activeFile, setActiveFile] = useState(initialFile);
   const [code, setCode] = useState(defaultContent);
 
-  const remoteCursors = useRef({});           // { email: { line, col, username, color } }
-const decorationsRef = useRef([]);          // Monaco decoration IDs
-const monacoRef = useRef(null);             // monaco instance ref
-
 
   // UI state
   const [rightTab, setRightTab] = useState('ai');
@@ -800,44 +833,6 @@ useEffect(()=>{
 
 },[roomId]);
 
-// ── Remote cursor subscription ──────────────────────────────────────────
-useEffect(() => {
-    if (wsStatus !== 'connected') return;
-
-    const unsub = wsService.subscribe(
-        `/topic/room/${roomId}/cursors`,
-        (event) => {
-            // Ignore our own cursor
-            if (event.email === userRef.current?.email) return;
-
-            // Update remote cursor map
-            remoteCursors.current[event.email] = {
-                line: event.line,
-                column: event.column,
-                username: event.username,
-                color: event.color,
-            };
-
-            renderCursorDecorations();
-        }
-    );
-
-    return () => unsub();
-}, [wsStatus, roomId]);
-
-// Remove cursor when a user leaves
-useEffect(() => {
-    // Listen on presence events already handled by connectedUsers
-    // Clean up stale cursors for users no longer in room
-    const emails = connectedUsers.map(u => u.email);
-    Object.keys(remoteCursors.current).forEach(email => {
-        if (!emails.includes(email)) {
-            delete remoteCursors.current[email];
-        }
-    });
-    renderCursorDecorations();
-}, [connectedUsers]);
-
 
   // ── Resize handles ──
   const startResize = useCallback(
@@ -912,31 +907,47 @@ useEffect(() => {
       );
     }
   };
-  const handleFileDelete = async(fileId) => {
-    setFiles((prev) => {
-      const next = prev.filter((f) => f.id !== fileId);
-     if(activeFile?.id===fileId){
-        if(next.length){
-            handleFileSelect(next[0]);
-        }else{
-            setActiveFile(null);
-            setCode('');
-        }
+  const handleFileDelete = async (fileId) => {
+    // Compute next file list BEFORE touching state
+    const next = files.filter((f) => f.id !== fileId);
+
+    // Switch active file if the deleted one is open
+    if (activeFile?.id === fileId) {
+      if (next.length) {
+        handleFileSelect(next[0]);
+      } else {
+        setActiveFile(null);
+        setCode('');
       }
-      return next;
-    });
-    try{
-      await fileService.deleteFile(
-          roomId,
-          fileId
-      );
-      }catch(err){
-      console.error(
-          "Delete failed",
-          err
-      );
-      }
+    }
+
+    // Remove from UI
+    setFiles(next);
+
+    // Call API
+    try {
+      await fileService.deleteFile(roomId, fileId);
+    } catch (err) {
+      console.error('Delete failed', err);
+      // Revert on failure
+      const { data } = await fileService.getFiles(roomId);
+      setFiles(data);
+    }
   };
+const handleFileRename = async (fileId, newName) => {
+    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, name: newName } : f));
+    if (activeFile?.id === fileId) {
+      setActiveFile(prev => ({ ...prev, name: newName }));
+    }
+    try {
+      await fileService.updateFile(roomId, fileId, { name: newName });
+    } catch (err) {
+      console.error('Rename failed', err);
+      const { data } = await fileService.getFiles(roomId);
+      setFiles(data);
+    }
+  };
+
 const handleRunWithCode = async (currentCode) => {
     if (isRunning) return;
     setIsRunning(true);
@@ -982,68 +993,6 @@ const handleRun = () => {
     disconnected: 'bg-red-400',
   }[wsStatus];
 
-  const renderCursorDecorations = useCallback(() => {
-    const editor = editorRef.current;
-    const monaco = monacoRef.current;
-    if (!editor || !monaco) return;
-
-    const newDecorations = Object.entries(remoteCursors.current).map(
-        ([email, { line, column, username, color }]) => ({
-            range: new monaco.Range(line, column, line, column),
-            options: {
-                className: `remote-cursor-${email.replace(/[@.]/g, '-')}`,
-                beforeContentClassName: `remote-cursor-label`,
-                stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-                // Inline cursor line
-                afterContentClassName: undefined,
-                // We use a CSS class injected below
-                zIndex: 10,
-                // Store color for CSS injection
-                hoverMessage: { value: `**${username}**` },
-            },
-        })
-    );
-
-    // Inject CSS for each cursor
-    Object.entries(remoteCursors.current).forEach(([email, { color, username }]) => {
-        const safeEmail = email.replace(/[@.]/g, '-');
-        const styleId = `cursor-style-${safeEmail}`;
-        if (!document.getElementById(styleId)) {
-            const style = document.createElement('style');
-            style.id = styleId;
-            style.textContent = `
-                .remote-cursor-${safeEmail} {
-                    border-left: 2px solid ${color};
-                    margin-left: -1px;
-                    position: relative;
-                }
-                .remote-cursor-${safeEmail}::before {
-                    content: '${username.replace(/'/g, "\\'")}';
-                    position: absolute;
-                    top: -18px;
-                    left: -1px;
-                    background: ${color};
-                    color: #000;
-                    font-size: 10px;
-                    font-weight: 600;
-                    padding: 1px 5px;
-                    border-radius: 3px 3px 3px 0;
-                    white-space: nowrap;
-                    pointer-events: none;
-                    font-family: sans-serif;
-                    line-height: 16px;
-                    z-index: 100;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    });
-
-    decorationsRef.current = editor.deltaDecorations(
-        decorationsRef.current,
-        newDecorations
-    );
-}, []);
   return (
     <div className="flex flex-col h-screen bg-background text-on-surface overflow-hidden select-none">
 
@@ -1169,6 +1118,7 @@ const handleRun = () => {
                 onFileSelect={handleFileSelect}
                 onFileCreate={handleFileCreate}
                 onFileDelete={handleFileDelete}
+                onFileRename={handleFileRename}
                 language={language}
               />
             </aside>
@@ -1215,41 +1165,26 @@ const handleRun = () => {
               value={code}
               onChange={handleCodeChange}
               theme="vs-dark"
-             onMount={(editor, monaco) => {
+              onMount={(editor, monaco) => {  // ✅ add monaco as second param
               editorRef.current = editor;
-              monacoRef.current = monaco;     
 
-              editor.addCommand(
-                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                  () => {
-                      const currentCode = editorRef.current.getValue();
-                      codeRef.current = currentCode;
-                      handleRunWithCode(currentCode);
-                  }
-              );
+                  editor.addCommand(
+                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                      () => {
+                          // ✅ Get value DIRECTLY from editor — always latest, never stale
+                          const currentCode = editorRef.current.getValue();
+                          codeRef.current = currentCode;
+                          handleRunWithCode(currentCode);
+                      }
+                  );
 
-              // ── Cursor publish ──────────────────────────────────
-              editor.onDidChangeCursorPosition((e) => {
-                  setCursor({ line: e.position.lineNumber, col: e.position.column });
-
-                  // Throttle: only publish every 80ms
-                  if (!editor._cursorThrottle) {
-                      editor._cursorThrottle = setTimeout(() => {
-                          editor._cursorThrottle = null;
-                          if (wsService.isConnected() && userRef.current) {
-                              wsService.publish(`/app/room/${roomId}/cursor`, {
-                                  userId: userRef.current.id,
-                                  username: userRef.current.username,
-                                  email: userRef.current.email,
-                                  color: getCursorColor(userRef.current.email),
-                                  line: e.position.lineNumber,
-                                  column: e.position.column,
-                              });
-                          }
-                      }, 80);
-                  }
-              });
-          }}
+                  editor.onDidChangeCursorPosition((e) => {
+                      setCursor({
+                          line: e.position.lineNumber,
+                          col: e.position.column,
+                      });
+                  });
+              }}
               options={{
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
@@ -1315,7 +1250,7 @@ const handleRun = () => {
           {/* Tab content */}
           <div className="flex-1 overflow-hidden">
             {rightTab === 'ai' && (
-              <AIPanel code={code} language={language} roomId={roomId} />
+              <AIPanel code={code} language={language} />
             )}
            {rightTab === 'output' && (
             <OutputPanel

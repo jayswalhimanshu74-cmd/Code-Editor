@@ -13,10 +13,11 @@ import RoomLobby from './pages/RoomLobby/RoomLobby';
 import EditorWorkspace from './pages/EditorWorkspace/EditorWorkspace';
 import FileManager from './pages/FileManager/FileManager';
 import History from './pages/History/History';
-import Settings from './pages/Settings/Settings';
 import NotFound from './pages/NotFound/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import Settings from './pages/Settings/Settings';
 import MobileGuard from './components/MobileGaurd';
+import ActivityLog from './pages/ActivityLog/ActivityLog';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
         <Route path="/room-lobby/:roomId" element={<ProtectedRoute><RoomLobby /></ProtectedRoute>} />
         <Route path="/workspace/:roomId" element={<ProtectedRoute><MobileGuard><EditorWorkspace /></MobileGuard></ProtectedRoute>} />
         <Route path="/files" element={<ProtectedRoute><FileManager /></ProtectedRoute>} />
+        <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 

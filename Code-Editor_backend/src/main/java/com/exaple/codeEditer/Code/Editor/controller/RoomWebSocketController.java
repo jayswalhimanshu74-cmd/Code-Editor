@@ -10,6 +10,7 @@ import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
 import com.exaple.codeEditer.Code.Editor.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import com.exaple.codeEditer.Code.Editor.service.FileEditLogService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -29,6 +30,7 @@ public class RoomWebSocketController {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final FileEditLogService fileEditLogService;
 
     // ── Code change ───────────────────────────────────────
     // Client sends to  : /app/room/{roomId}/code
@@ -43,6 +45,14 @@ public class RoomWebSocketController {
             fileRepository.findById(event.getFileId()).ifPresent(file -> {
                 file.setContent(event.getContent());
                 fileRepository.save(file);
+
+                fileEditLogService.logEdit(
+                file.getId(),
+                UUID.fromString(roomId),
+                event.getSenderEmail(),
+                file.getName(),
+                event.getContent()
+            );
             });
         }
 
