@@ -5,6 +5,7 @@ import com.exaple.codeEditer.Code.Editor.dto.file.CreateFileRequest;
 import com.exaple.codeEditer.Code.Editor.dto.file.FileResponse;
 import com.exaple.codeEditer.Code.Editor.dto.file.UpdateFileRequest;
 import com.exaple.codeEditer.Code.Editor.entity.File;
+import com.exaple.codeEditer.Code.Editor.service.FileEditLogService;
 import com.exaple.codeEditer.Code.Editor.entity.Room;
 import com.exaple.codeEditer.Code.Editor.entity.User;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
@@ -27,6 +28,7 @@ public class FileService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final UserRepository userRepository;
+    private final FileEditLogService fileEditLogService;
 
     public List<FileResponse> getFileTree(UUID roomId, String email) {
         Room room = getRoom(roomId);
@@ -72,6 +74,7 @@ public class FileService {
                 .build();
 
         fileRepository.save(file);
+        fileEditLogService.logAction(file.getId(), roomId, email, file.getName(), "CREATE");
         return toFileResponse(file);
     }
 
@@ -86,11 +89,13 @@ public class FileService {
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found"));
 
+       boolean isRename = request.getName() != null;
         if (request.getName() != null)     file.setName(request.getName());
         if (request.getContent() != null)  file.setContent(request.getContent());
         if (request.getLanguage() != null) file.setLanguage(request.getLanguage());
 
         fileRepository.save(file);
+        fileEditLogService.logAction(file.getId(), roomId, email, file.getName(), isRename ? "RENAME" : "EDIT");
         return toFileResponse(file);
     }
 
@@ -102,6 +107,7 @@ public class FileService {
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found"));
 
+        fileEditLogService.logAction(file.getId(), roomId, email, file.getName(), "DELETE");
         fileRepository.delete(file);
     }
 

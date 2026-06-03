@@ -18,6 +18,7 @@ const Sidebar = () => {
         { to: '/join-room', icon: 'group_add',   label: 'Join Room' },
         { to: '/settings',  icon: 'settings',    label: 'Settings' },
         { to: '/profile',   icon: 'person',      label: 'Profile' },
+        { to: '/activity',  icon: 'history_log',  label: 'Activity' }
     ];
 
     const s = {

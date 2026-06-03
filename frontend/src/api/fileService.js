@@ -19,8 +19,8 @@ createFile: (roomId, name, content = "") =>
 // PUT /api/rooms/{roomId}/files/{fileId}
 // Updates file content (called on every code save)
 
-updateFile: (roomId, fileId, content) =>
-    api.put(`/rooms/${roomId}/files/${fileId}`, { content }),
+updateFile: (roomId, fileId, data) =>
+    api.put(`/rooms/${roomId}/files/${fileId}`, data),
 // DELETE /api/rooms/{roomId}/files/{fileId}
 deleteFile: (roomId, fileId) =>
     api.delete(`/rooms/${roomId}/files/${fileId}`),
