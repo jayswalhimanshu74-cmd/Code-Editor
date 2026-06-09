@@ -39,4 +39,8 @@ public class User {
 
     @Column(name = "last_logout_at")
     private LocalDateTime lastLogoutAt;
+
+    @Column(name = "role", nullable = false, columnDefinition = "varchar(255) default 'ROLE_USER'")
+    @Builder.Default
+    private String role = "ROLE_USER";
 }

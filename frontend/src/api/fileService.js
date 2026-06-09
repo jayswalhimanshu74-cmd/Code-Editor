@@ -12,8 +12,8 @@ export const fileService = {
 // POST /api/rooms/{roomId}/files
 // Creates a new file — body: { name, content }
 
-createFile: (roomId, name, content = "") =>
-    api.post(`/rooms/${roomId}/files`, { name, content }),
+createFile: (roomId, name, content = "", isFolder = false, parentId = null) =>
+    api.post(`/rooms/${roomId}/files`, { name, content, isFolder, parentId }),
     
 
 // PUT /api/rooms/{roomId}/files/{fileId}

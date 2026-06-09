@@ -14,6 +14,16 @@ const Register = () => {
   const [localError, setLocalError] = useState('');
 
   const [pwStrength, setPwStrength] = useState(0);
+   useEffect(() => {
+        let s = 0;
+        if (password.length >= 6) s++;
+        if (password.length >= 10) s++;
+        if (/[A-Z]/.test(password)) s++;
+        if (/[0-9]/.test(password)) s++;
+        if (/[^A-Za-z0-9]/.test(password)) s++;
+        setPwStrength(s);
+    }, [password]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
@@ -28,17 +38,6 @@ const Register = () => {
       return;
     }
     
-
-    useEffect(() => {
-        let s = 0;
-        if (password.length >= 6) s++;
-        if (password.length >= 10) s++;
-        if (/[A-Z]/.test(password)) s++;
-        if (/[0-9]/.test(password)) s++;
-        if (/[^A-Za-z0-9]/.test(password)) s++;
-        setPwStrength(s);
-    }, [password]);
-
     const success = await register(username, email, password);
     if (success) navigate('/login');
   };

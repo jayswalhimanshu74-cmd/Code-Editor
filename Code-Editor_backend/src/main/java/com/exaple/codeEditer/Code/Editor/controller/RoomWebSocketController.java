@@ -109,6 +109,10 @@ public class RoomWebSocketController {
                 "/topic/room/" + roomId + "/presence", event
         );
 
+        if (event.getEmail() != null) {
+            fileEditLogService.logAction(null, UUID.fromString(roomId), event.getEmail(), null, "JOIN");
+        }
+
         log.info("User {} joined room {}", event.getUsername(), roomId);
     }
 
@@ -126,6 +130,10 @@ public class RoomWebSocketController {
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId + "/presence", event
         );
+
+        if (event.getEmail() != null) {
+            fileEditLogService.logAction(null, UUID.fromString(roomId), event.getEmail(), null, "LEAVE");
+        }
 
         log.info("User {} left room {}", event.getUsername(), roomId);
     }

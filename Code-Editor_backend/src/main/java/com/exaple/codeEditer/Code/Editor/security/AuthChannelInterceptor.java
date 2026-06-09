@@ -33,6 +33,11 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
                 handleConnect(accessor);
             } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
                 handleSubscribe(accessor);
+            }else if (StompCommand.SEND.equals(accessor.getCommand())) {
+              String destination = accessor.getDestination();
+              if (destination != null && destination.startsWith("/app/yjs/")) {
+                return message; // ✅ pass through directly
+              }
             }
         }
         return message;

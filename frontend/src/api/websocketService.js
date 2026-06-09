@@ -40,6 +40,7 @@ class WebSocketService {
                 this.connected = true;
                 console.log("[WS] Connected to server");
 
+                
                 // Flush all queued subscriptions
                 this.onConnectCallbacks.forEach(cb => cb());
                 this.onConnectCallbacks = [];
@@ -54,8 +55,11 @@ class WebSocketService {
             },
 
             onStompError: (frame) => {
-                console.error("[WS] STOMP error:", frame);
+                console.error('[WS] STOMP error frame:', frame);
+                console.error('[WS] STOMP error message:', frame.headers?.message);
+                console.error('[WS] STOMP error body:', frame.body);
             },
+        
 
             // ✅ Refresh token on reconnect attempts
             beforeConnect: () => {
@@ -68,7 +72,7 @@ class WebSocketService {
         this.client.activate();
     }
 
-    subscribe(topic, callback) {
+    subscribe(topic, callback, isBinary = false) {
 
         if (!this.client) {
             console.warn("[WS] No client — call connect() first");
@@ -93,10 +97,15 @@ class WebSocketService {
             if (this.subscriptions.has(topic)) return;
 
             const sub = this.client.subscribe(topic, (message) => {
+                if (isBinary) {
+                    callback(message.body, message);
+                    return;
+                }
                 try {
-                    callback(JSON.parse(message.body));
+                    const parsed = JSON.parse(message.body)
+                    callback(parsed,message)
                 } catch {
-                    callback(message.body);
+                    callback(message.body,message);
                 }
             });
 
@@ -152,6 +161,45 @@ class WebSocketService {
 
     isConnected() {
         return this.connected;
+    }
+    // Add inside the WebSocketService class:
+
+    sendBinary(destination, data) {
+        if (!this.client?.active || !this.connected) {
+            console.warn('[WS] Cannot send binary — not connected');
+            return;
+        }
+     let base64;
+    if (typeof data === 'string') {
+        base64 = data; // already Base64
+    } else {
+        // ✅ Fast chunked conversion for large Uint8Arrays
+        let binary = '';
+        const bytes = new Uint8Array(data);
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        base64 = btoa(binary);
+    }
+        this.client.publish({
+            destination,
+            body: base64,
+            headers: {
+                "content-type": "text/plain",
+            },
+        });
+    }
+
+    
+    unsubscribe(subscription) {
+        if (subscription) {
+            try {
+                subscription.unsubscribe();
+            } catch (err) {
+                console.warn('[WS] Unsubscribe error:', err);
+            }
+        }
     }
 }
 

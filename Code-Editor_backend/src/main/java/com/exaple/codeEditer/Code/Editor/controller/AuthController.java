@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 
 @RestController
@@ -52,6 +53,35 @@ public class AuthController {
     public ResponseEntity<AuthResponse.UserDto> getMe(
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(authService.getMe(userDetails.getUsername()));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
+        }
+        try {
+            String token = authService.forgotPassword(email);
+            return ResponseEntity.ok(Map.of("message", "Reset link sent to email (check backend console for token)!", "token", token));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String newPassword = request.get("newPassword");
+        if (token == null || newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Token and new password are required"));
+        }
+        try {
+            authService.resetPassword(token, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
 }

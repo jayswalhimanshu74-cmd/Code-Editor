@@ -83,11 +83,15 @@ public class PistonService {
         long startTime = System.currentTimeMillis();
 
         try {
+            String version = request.getVersionIndex() != null && !request.getVersionIndex().isEmpty() 
+                                ? request.getVersionIndex() 
+                                : langConfig[1];
+
             ExecuteResponse response = callJDoodle(
                     request.getSourceCode(),
                     request.getStdin(),
                     langConfig[0],
-                    langConfig[1]
+                    version
             );
 
             long duration = System.currentTimeMillis() - startTime;

@@ -12,11 +12,59 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Forgot password states
+  const [step, setStep] = useState('login'); // 'login', 'forgot', 'reset'
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [localMessage, setLocalMessage] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearError();
+    setLocalError('');
+    setLocalMessage('');
     const success = await login(email, password);
     if (success) navigate('/dashboard');
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setLocalError('');
+    setLocalMessage('');
+    setIsProcessing(true);
+    try {
+      const res = await authService.forgotPassword(email);
+      setLocalMessage(res.data.message || 'Reset link sent!');
+      // Move to reset step (in a real app, user clicks email link instead)
+      setTimeout(() => setStep('reset'), 2000);
+    } catch (err) {
+      setLocalError(err.response?.data?.message || 'Failed to send reset link');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    setLocalError('');
+    setLocalMessage('');
+    setIsProcessing(true);
+    try {
+      const res = await authService.resetPassword(resetToken, newPassword);
+      setLocalMessage(res.data.message || 'Password reset successfully!');
+      setTimeout(() => {
+        setStep('login');
+        setPassword('');
+        setResetToken('');
+        setLocalMessage('');
+      }, 2000);
+    } catch (err) {
+      setLocalError(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   useEffect(() => {
     if (authService.isLoggedIn()) {
@@ -45,20 +93,36 @@ const Login = () => {
           {/* Brand */}
           <div className="flex flex-col items-center text-center gap-xs">
             <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center mb-sm border border-primary/30">
-              <span className="material-symbols-outlined text-primary text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
+              <span className="material-symbols-outlined text-primary text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {step === 'login' ? 'terminal' : 'lock_reset'}
+              </span>
             </div>
-            <h1 className="font-headline-md text-headline-md text-on-surface">Welcome back</h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">Enter your details to continue</p>
+            <h1 className="font-headline-md text-headline-md text-on-surface">
+              {step === 'login' && 'Welcome back'}
+              {step === 'forgot' && 'Reset Password'}
+              {step === 'reset' && 'Set New Password'}
+            </h1>
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              {step === 'login' && 'Enter your details to continue'}
+              {step === 'forgot' && 'Enter your email to receive a reset token'}
+              {step === 'reset' && 'Enter the token and your new password'}
+            </p>
           </div>
 
-          {/* Error banner */}
-          {error && (
+          {/* Messages */}
+          {(error || localError) && (
             <div className="bg-error/10 border border-error/30 text-error rounded-lg px-md py-sm font-body-md text-body-md">
-              {error}
+              {error || localError}
+            </div>
+          )}
+          {localMessage && (
+            <div className="bg-primary/10 border border-primary/30 text-primary rounded-lg px-md py-sm font-body-md text-body-md">
+              {localMessage}
             </div>
           )}
 
           {/* Form */}
+          {step === 'login' && (
           <form className="flex flex-col gap-md" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-sm">
               <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="email">Email Address</label>
@@ -77,7 +141,16 @@ const Login = () => {
             </div>
 
             <div className="flex flex-col gap-sm">
-              <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="password">Password</label>
+              <div className="flex justify-between items-center">
+                <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="password">Password</label>
+                <button 
+                  type="button" 
+                  onClick={() => { setStep('forgot'); clearError(); setLocalError(''); setLocalMessage(''); }}
+                  className="font-label-sm text-label-sm text-primary hover:underline"
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
                 <span className="material-symbols-outlined text-outline text-[20px] mr-sm">lock</span>
                 <input
@@ -111,11 +184,102 @@ const Login = () => {
               ) : 'Sign In'}
             </button>
           </form>
+          )}
 
-          <p className="text-center font-body-md text-body-md text-on-surface-variant">
-            Don't have an account?
-            <Link className="text-primary font-bold hover:underline ml-xs" to="/register">Sign up</Link>
-          </p>
+          {/* Forgot Password Form */}
+          {step === 'forgot' && (
+            <form className="flex flex-col gap-md" onSubmit={handleForgotSubmit}>
+              <div className="flex flex-col gap-sm">
+                <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="forgot-email">Email Address</label>
+                <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
+                  <span className="material-symbols-outlined text-outline text-[20px] mr-sm">mail</span>
+                  <input
+                    className="bg-transparent border-none focus:ring-0 w-full text-on-surface placeholder:text-outline font-body-md text-body-md"
+                    id="forgot-email"
+                    type="email"
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                className="bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white py-md rounded-lg font-body-md text-body-md font-bold shadow-lg hover:shadow-primary/20 active:scale-95 transition-all mt-sm disabled:opacity-60 flex items-center justify-center gap-sm"
+                type="submit"
+                disabled={isProcessing}
+              >
+                {isProcessing ? <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> : 'Send Reset Link'}
+              </button>
+
+              <button 
+                type="button" 
+                onClick={() => setStep('login')}
+                className="text-on-surface-variant hover:text-on-surface font-body-md transition-colors mt-2"
+              >
+                Back to Login
+              </button>
+            </form>
+          )}
+
+          {/* Reset Password Form */}
+          {step === 'reset' && (
+            <form className="flex flex-col gap-md" onSubmit={handleResetSubmit}>
+              <div className="flex flex-col gap-sm">
+                <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="token">Reset Token</label>
+                <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
+                  <span className="material-symbols-outlined text-outline text-[20px] mr-sm">key</span>
+                  <input
+                    className="bg-transparent border-none focus:ring-0 w-full text-on-surface placeholder:text-outline font-body-md text-body-md"
+                    id="token"
+                    type="text"
+                    placeholder="Paste your reset token here"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-sm">
+                <label className="font-label-sm text-label-sm text-on-surface-variant" htmlFor="new-password">New Password</label>
+                <div className="relative group focus-within:border-[#6366f1] focus-within:shadow-[0_0_0_2px_rgba(99,102,241,0.2)] bg-black/20 border border-outline-variant/30 rounded-lg flex items-center px-md py-sm transition-all duration-200">
+                  <span className="material-symbols-outlined text-outline text-[20px] mr-sm">lock</span>
+                  <input
+                    className="bg-transparent border-none focus:ring-0 w-full text-on-surface placeholder:text-outline font-body-md text-body-md"
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                  <span
+                    className="material-symbols-outlined text-outline text-[20px] ml-sm cursor-pointer hover:text-on-surface"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                className="bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white py-md rounded-lg font-body-md text-body-md font-bold shadow-lg hover:shadow-primary/20 active:scale-95 transition-all mt-sm disabled:opacity-60 flex items-center justify-center gap-sm"
+                type="submit"
+                disabled={isProcessing}
+              >
+                {isProcessing ? <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> : 'Confirm Reset'}
+              </button>
+            </form>
+          )}
+
+          {step === 'login' && (
+            <p className="text-center font-body-md text-body-md text-on-surface-variant">
+              Don't have an account?
+              <Link className="text-primary font-bold hover:underline ml-xs" to="/register">Sign up</Link>
+            </p>
+          )}
         </div>
       </main>
 

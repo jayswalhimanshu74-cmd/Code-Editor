@@ -8,6 +8,8 @@ const ACTION_META = {
     CREATE: { icon: 'add_circle',   color: 'text-green-400 bg-green-400/10', label: 'Created' },
     DELETE: { icon: 'delete',       color: 'text-red-400 bg-red-400/10',     label: 'Deleted' },
     RENAME: { icon: 'drive_file_rename_outline', color: 'text-yellow-400 bg-yellow-400/10', label: 'Renamed' },
+    JOIN:   { icon: 'login',        color: 'text-emerald-400 bg-emerald-400/10', label: 'Joined' },
+    LEAVE:  { icon: 'logout',       color: 'text-orange-400 bg-orange-400/10', label: 'Left' },
 };
 
 const parseDate = (d) => {
@@ -38,7 +40,7 @@ const LogRow = ({ entry }) => {
 
                 {/* File name */}
                 <span className="text-on-surface text-[12px] font-mono truncate flex-1">
-                    {entry.fileName}
+                    {entry.fileName || "Room"}
                 </span>
 
                 {/* User */}
@@ -158,7 +160,7 @@ const ActivityLog = () => {
                             onChange={e => setFilterAction(e.target.value)}
                             className="bg-black/20 border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface text-[11px] focus:border-primary/50 focus:outline-none"
                         >
-                            {['ALL', 'EDIT', 'CREATE', 'DELETE', 'RENAME'].map(a => (
+                            {['ALL', 'EDIT', 'CREATE', 'DELETE', 'RENAME', 'JOIN', 'LEAVE'].map(a => (
                                 <option key={a} value={a} className="bg-surface-container">{a}</option>
                             ))}
                         </select>
