@@ -11,6 +11,7 @@ import useRoomStore from '../../store/roomStore';
 import api from '../../api/axios';
 import { EXTENSIONS, FILE_ICONS, getFileIcon, languageColor } from '../../utils/fileUtils';
 import FileTree from './components/FileTree';
+import TerminalPanel from './components/TerminalPanel';
 
 import { wsService } from '../../api/websocketService';
 import { fileService } from '../../api/fileService';
@@ -1451,7 +1452,8 @@ const EditorWorkspace = () => {
           <div className="flex-shrink-0 flex border-b border-outline-variant/20 bg-surface-container-low/30">
             {[
               { id: 'ai', icon: 'smart_toy', label: 'AI' },
-              { id: 'output', icon: 'terminal', label: 'Output' },
+              { id: 'output', icon: 'data_object', label: 'Output' },
+              { id: 'terminal', icon: 'terminal', label: 'Terminal' },
               { id: 'chat', icon: 'forum', label: 'Chat' },
             ].map((tab) => (
               <button
@@ -1503,6 +1505,9 @@ const EditorWorkspace = () => {
                 roomId={roomId}
                 user={user}
               />
+            )}
+            {rightTab === 'terminal' && (
+              <TerminalPanel roomId={roomId} />
             )}
           </div>
         </aside>
