@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react';
 import { snapshotService } from '../../api/snapshotService';
 import * as Y from 'yjs';
 import { MonacoBinding } from 'y-monaco';
+import { IndexeddbPersistence } from 'y-indexeddb';
 import { yjsService } from '../../api/yjsService';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
@@ -870,6 +871,12 @@ const EditorWorkspace = () => {
           awareness ?? null
         );
         bindingRef.current = binding;
+
+        // Offline Persistence
+        const indexeddbProvider = new IndexeddbPersistence(fileId, ydoc);
+        indexeddbProvider.on('synced', () => {
+          console.log('[Yjs] Local content loaded from IndexedDB for file', fileId);
+        });
 
         console.log('[Yjs] Bound to Monaco successfully for file', fileId);
       } catch (err) {

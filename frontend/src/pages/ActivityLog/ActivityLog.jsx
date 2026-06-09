@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useRoomStore from '../../store/roomStore';
 import { logService } from '../../api/logService';
+import { wsService } from '../../api/websocketService';
 import Sidebar from '../../components/Sidebar';
 
 const ACTION_META = {
@@ -98,6 +99,20 @@ const ActivityLog = () => {
         if (rooms.length > 0 && !selectedRoomId) setSelectedRoomId(rooms[0].id);
     }, [rooms]);
 
+    useEffect(() => {
+        if (!wsService.isConnected()) {
+            wsService.connect(
+                () => console.log('ActivityLog WS Connected'),
+                () => console.log('ActivityLog WS Disconnected')
+            );
+        }
+        return () => {
+            // Disconnect if we navigate away and aren't in editor
+            // Actually wsService is a singleton so we shouldn't necessarily disconnect it globally
+            // if the user is using multiple tabs, but SockJS handles its own connections
+        };
+    }, []);
+
   useEffect(() => {
     if (!selectedRoomId) return;
     setIsLoading(true);
@@ -112,6 +127,18 @@ const ActivityLog = () => {
             setError('Failed to load activity log'); // ← show the error
         })
         .finally(() => setIsLoading(false));
+
+    // Subscribe to real-time events via STOMP/Redis
+    if (wsService.isConnected()) {
+        const unsub = wsService.subscribe(`/topic/room/${selectedRoomId}/activity`, (newLog) => {
+            setLogs(prev => {
+                // To avoid duplicate keys, check if log already exists
+                if (prev.some(l => l.id === newLog.id)) return prev;
+                return [newLog, ...prev];
+            });
+        });
+        return () => unsub?.();
+    }
 }, [selectedRoomId, page]);
     // unique users from current page
     const users = ['ALL', ...new Set(logs.map(l => l.username))];

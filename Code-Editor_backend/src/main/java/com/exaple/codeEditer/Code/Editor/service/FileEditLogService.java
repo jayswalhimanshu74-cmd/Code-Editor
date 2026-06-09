@@ -21,6 +21,7 @@ public class FileEditLogService {
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final RedisPublisher redisPublisher;
 
     // Debounce: don't spam DB with every keystroke.
     // Only write an EDIT log if 5s have passed since last log for that file+user.
@@ -60,6 +61,8 @@ public class FileEditLogService {
             logRepository.save(editLog);
             log.debug("Edit log saved — user: {}, file: {}", userEmail, fileName);
 
+            redisPublisher.publish("/topic/room/" + roomId + "/activity", toDTO(editLog));
+
         } catch (Exception e) {
             log.warn("Failed to save edit log: {}", e.getMessage());
         }
@@ -89,6 +92,8 @@ public class FileEditLogService {
             logRepository.save(entry);
             log.info("{} log — user: {}, file: {}, room: {}",
                     actionType, userEmail, fileName, roomId);
+
+            redisPublisher.publish("/topic/room/" + roomId + "/activity", toDTO(entry));
 
         } catch (Exception e) {
             log.warn("Failed to save {} log: {}", actionType, e.getMessage());
