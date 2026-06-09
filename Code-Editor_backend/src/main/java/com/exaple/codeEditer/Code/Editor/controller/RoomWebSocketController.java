@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.exaple.codeEditer.Code.Editor.service.RedisPublisher;
 import org.springframework.stereotype.Controller;
 
 import java.util.UUID;
@@ -25,7 +25,7 @@ import java.util.UUID;
 @Slf4j
 public class RoomWebSocketController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RedisPublisher redisPublisher;
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
@@ -58,7 +58,7 @@ public class RoomWebSocketController {
 
         event.setTimestamp(System.currentTimeMillis());
 
-        messagingTemplate.convertAndSend(
+        redisPublisher.publish(
                 "/topic/room/" + roomId + "/code", event
         );
 
@@ -87,7 +87,7 @@ public class RoomWebSocketController {
 
         event.setTimestamp(System.currentTimeMillis());
 
-        messagingTemplate.convertAndSend(
+        redisPublisher.publish(
                 "/topic/room/" + roomId + "/chat", event
         );
 
@@ -105,7 +105,7 @@ public class RoomWebSocketController {
         event.setType("JOIN");
         event.setTimestamp(System.currentTimeMillis());
 
-        messagingTemplate.convertAndSend(
+        redisPublisher.publish(
                 "/topic/room/" + roomId + "/presence", event
         );
 
@@ -127,7 +127,7 @@ public class RoomWebSocketController {
         event.setType("LEAVE");
         event.setTimestamp(System.currentTimeMillis());
 
-        messagingTemplate.convertAndSend(
+        redisPublisher.publish(
                 "/topic/room/" + roomId + "/presence", event
         );
 
@@ -144,7 +144,7 @@ public class RoomWebSocketController {
 
         event.setTimestamp(System.currentTimeMillis());
 
-        messagingTemplate.convertAndSend(
+        redisPublisher.publish(
                 "/topic/room/" + roomId + "/cursors", event
     );
 }
