@@ -42,10 +42,13 @@ export const authService = {
         if (!refreshToken) throw new Error('No refresh token available');
 
         const response = await api.post('/auth/refresh', { refreshToken });
-        const { accessToken } = response.data;
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-        // ✅ Update stored access token
+        // ✅ Update stored tokens
         localStorage.setItem('accessToken', accessToken);
+        if (newRefreshToken) {
+            localStorage.setItem('refreshToken', newRefreshToken);
+        }
 
         return response;
     },
@@ -55,4 +58,10 @@ export const authService = {
 
     isLoggedIn: () =>
         !!localStorage.getItem('accessToken'),
+
+    forgotPassword: (email) =>
+        api.post('/auth/forgot-password', { email }),
+
+    resetPassword: (token, newPassword) =>
+        api.post('/auth/reset-password', { token, newPassword }),
 };

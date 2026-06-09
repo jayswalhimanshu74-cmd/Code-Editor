@@ -26,6 +26,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -108,6 +109,38 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return toUserDto(user);
+    }
+
+    @Transactional
+    public String forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String token = jwtService.generatePasswordResetToken(user.getEmail());
+        
+        try {
+            emailService.sendPasswordResetEmail(user.getEmail(), token);
+        } catch (Exception e) {
+            System.err.println("Failed to send email: " + e.getMessage());
+        }
+
+        System.out.println("=================================================");
+        System.out.println("PASSWORD RESET TOKEN FOR " + email + ": " + token);
+        System.out.println("=================================================");
+        return token;
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        if (!jwtService.isTokenValid(token)) {
+            throw new RuntimeException("Invalid or expired reset token");
+        }
+        String email = jwtService.extractEmail(token);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        refreshTokenRepository.revokeAllUserTokens(user);
     }
 
 

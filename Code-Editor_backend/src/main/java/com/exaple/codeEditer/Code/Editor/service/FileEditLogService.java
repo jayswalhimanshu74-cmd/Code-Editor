@@ -29,14 +29,15 @@ public class FileEditLogService {
     // ── Called from WebSocket handler (EDIT) ──────────────────────────────────
     @Transactional
     public void logEdit(UUID fileId, UUID roomId, String userEmail,
-                        String fileName, String contentSnapshot) {
+            String fileName, String contentSnapshot) {
 
         String debounceKey = fileId + "::" + userEmail;
         long now = System.currentTimeMillis();
         Long last = lastEditLogTime.get(debounceKey);
 
         // Skip if last log was less than 5 seconds ago
-        if (last != null && (now - last) < 5_000) return;
+        if (last != null && (now - last) < 5_000)
+            return;
         lastEditLogTime.put(debounceKey, now);
 
         try {
@@ -44,7 +45,8 @@ public class FileEditLogService {
             User user = userRepository.findByEmail(userEmail).orElse(null);
             File file = fileRepository.findById(fileId).orElse(null);
 
-            if (room == null || user == null) return;
+            if (room == null || user == null)
+                return;
 
             FileEditLog editLog = FileEditLog.builder()
                     .room(room)
@@ -66,13 +68,14 @@ public class FileEditLogService {
     // ── Called from FileService (CREATE / DELETE / RENAME) ────────────────────
     @Transactional
     public void logAction(UUID fileId, UUID roomId, String userEmail,
-                          String fileName, String actionType) {
+            String fileName, String actionType) {
         try {
             Room room = roomRepository.findById(roomId).orElse(null);
             User user = userRepository.findByEmail(userEmail).orElse(null);
-            File file = fileRepository.findById(fileId).orElse(null);
+            File file = fileId != null ? fileRepository.findById(fileId).orElse(null) : null;
 
-            if (room == null || user == null) return;
+            if (room == null || user == null)
+                return;
 
             FileEditLog entry = FileEditLog.builder()
                     .room(room)
@@ -80,7 +83,7 @@ public class FileEditLogService {
                     .user(user)
                     .fileName(fileName)
                     .actionType(actionType)
-                    .contentSnapshot(null)  // no snapshot for meta actions
+                    .contentSnapshot(null) // no snapshot for meta actions
                     .build();
 
             logRepository.save(entry);

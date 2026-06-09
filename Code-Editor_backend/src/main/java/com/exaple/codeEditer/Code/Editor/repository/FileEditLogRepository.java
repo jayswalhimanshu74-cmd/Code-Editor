@@ -6,6 +6,9 @@ import com.exaple.codeEditer.Code.Editor.entity.File;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
@@ -22,4 +25,8 @@ public interface FileEditLogRepository extends JpaRepository<FileEditLog, UUID> 
     // Logs by a specific user in a room
     Page<FileEditLog> findByRoomAndUserEmailOrderByChangedAtDesc(
         Room room, String email, Pageable pageable);
+
+     @Modifying
+     @Query("UPDATE FileEditLog f SET f.file = null WHERE f.file.id = :fileId")
+     void setFileToNullByFileId(@Param("fileId") UUID fileId);
 }

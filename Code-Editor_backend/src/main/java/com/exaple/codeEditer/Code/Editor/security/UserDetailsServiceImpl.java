@@ -7,7 +7,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.util.List;
+import java.util.Collections;
 
 
 @Service
@@ -22,7 +24,7 @@ public class UserDetailsServiceImpl  implements UserDetailsService {
                 .map(user -> org.springframework.security.core.userdetails.User
                         .withUsername(user.getEmail())
                         .password(user.getPasswordHash())
-                        .authorities(List.of())
+                        .authorities(Collections.singletonList(new SimpleGrantedAuthority(user.getRole() != null ? user.getRole() : "ROLE_USER")))
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }

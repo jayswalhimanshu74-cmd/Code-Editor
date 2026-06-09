@@ -4,7 +4,6 @@ import com.exaple.codeEditer.Code.Editor.dto.ai.AiChatRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import com.exaple.codeEditer.Code.Editor.config.RestTemplateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;

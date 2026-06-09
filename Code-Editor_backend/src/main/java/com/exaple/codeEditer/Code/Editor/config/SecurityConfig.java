@@ -45,6 +45,7 @@ public class SecurityConfig {
                                     "/api/auth/**",
                                     "/ws/**"
                             ).permitAll()
+                            .requestMatchers("/api/yjs/**").authenticated()
                             .anyRequest().authenticated()
                     )
                     .authenticationProvider(authenticationProvider())

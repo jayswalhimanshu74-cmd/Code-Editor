@@ -1,12 +1,12 @@
 package com.exaple.codeEditer.Code.Editor.service;
 
-
 import com.exaple.codeEditer.Code.Editor.dto.file.CreateFileRequest;
 import com.exaple.codeEditer.Code.Editor.dto.file.FileResponse;
 import com.exaple.codeEditer.Code.Editor.dto.file.UpdateFileRequest;
 import com.exaple.codeEditer.Code.Editor.entity.File;
 import com.exaple.codeEditer.Code.Editor.service.FileEditLogService;
 import com.exaple.codeEditer.Code.Editor.entity.Room;
+import com.exaple.codeEditer.Code.Editor.repository.FileEditLogRepository;
 import com.exaple.codeEditer.Code.Editor.entity.User;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomMemberRepository;
@@ -16,11 +16,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class FileService {
 
@@ -29,6 +30,7 @@ public class FileService {
     private final RoomMemberRepository roomMemberRepository;
     private final UserRepository userRepository;
     private final FileEditLogService fileEditLogService;
+    private final FileEditLogRepository fileEditLogRepository;
 
     public List<FileResponse> getFileTree(UUID roomId, String email) {
         Room room = getRoom(roomId);
@@ -52,8 +54,8 @@ public class FileService {
 
     @Transactional
     public FileResponse createFile(UUID roomId,
-                                   CreateFileRequest request,
-                                   String email) {
+            CreateFileRequest request,
+            String email) {
         Room room = getRoom(roomId);
         checkMembership(room, email);
 
@@ -80,19 +82,22 @@ public class FileService {
 
     @Transactional
     public FileResponse updateFile(UUID roomId,
-                                   UUID fileId,
-                                   UpdateFileRequest request,
-                                   String email) {
+            UUID fileId,
+            UpdateFileRequest request,
+            String email) {
         Room room = getRoom(roomId);
         checkMembership(room, email);
 
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found"));
 
-       boolean isRename = request.getName() != null;
-        if (request.getName() != null)     file.setName(request.getName());
-        if (request.getContent() != null)  file.setContent(request.getContent());
-        if (request.getLanguage() != null) file.setLanguage(request.getLanguage());
+        boolean isRename = request.getName() != null;
+        if (request.getName() != null)
+            file.setName(request.getName());
+        if (request.getContent() != null)
+            file.setContent(request.getContent());
+        if (request.getLanguage() != null)
+            file.setLanguage(request.getLanguage());
 
         fileRepository.save(file);
         fileEditLogService.logAction(file.getId(), roomId, email, file.getName(), isRename ? "RENAME" : "EDIT");
@@ -103,14 +108,14 @@ public class FileService {
     public void deleteFile(UUID roomId, UUID fileId, String email) {
         Room room = getRoom(roomId);
         checkMembership(room, email);
-
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found"));
 
-        fileEditLogService.logAction(file.getId(), roomId, email, file.getName(), "DELETE");
+        String fileName = file.getName();
+        fileEditLogRepository.setFileToNullByFileId(fileId);
         fileRepository.delete(file);
+        fileEditLogService.logAction(null, roomId, email, fileName, "DELETE");
     }
-
     // ── helpers ───────────────────────────────────────────
 
     private Room getRoom(UUID roomId) {
@@ -148,7 +153,8 @@ public class FileService {
                 .language(file.getLanguage())
                 .isFolder(file.getIsFolder())
                 .parentId(file.getParent() != null
-                        ? file.getParent().getId() : null)
+                        ? file.getParent().getId()
+                        : null)
                 .roomId(file.getRoom().getId())
                 .createdAt(file.getCreatedAt())
                 .updatedAt(file.getUpdatedAt())
