@@ -7,7 +7,7 @@ import com.exaple.codeEditer.Code.Editor.config.SecurityUtill;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.exaple.codeEditer.Code.Editor.service.RedisPublisher;
 import org.springframework.stereotype.Controller;
 import org.slf4j.Logger;
   import java.util.Base64;
@@ -18,15 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Controller
 public class YjsController {
 
-    private final SimpMessagingTemplate messaging;
+    private final RedisPublisher redisPublisher;
     private final YjsDocumentRepository yjsRepo;
     private final SecurityUtill securityUtill;
     private static final Logger log = LoggerFactory.getLogger(YjsController.class);
 
-    public YjsController(SimpMessagingTemplate messaging,
+    public YjsController(RedisPublisher redisPublisher,
                          YjsDocumentRepository yjsRepo,
                          SecurityUtill securityUtill) {
-        this.messaging   = messaging;
+        this.redisPublisher = redisPublisher;
         this.yjsRepo     = yjsRepo;
         this.securityUtill = securityUtill;
     }
@@ -63,7 +63,7 @@ public void handleYjsUpdate(
         yjsRepo.save(doc);
 
         // ✅ Broadcast as Base64 string — clients decode it
-        messaging.convertAndSend("/topic/yjs/" + 
+        redisPublisher.publish("/topic/yjs/" + 
                                     roomId,Base64.getEncoder().encodeToString(update));
 
     } catch (Exception e) {
@@ -98,7 +98,7 @@ public void handleFileYjsUpdate(
         doc.setState(update);
         yjsRepo.save(doc);
 
-        messaging.convertAndSend(
+        redisPublisher.publish(
             "/topic/yjs/" + roomId + "/file/" + fileId,
              Base64.getEncoder().encodeToString(update)
         );
@@ -116,7 +116,7 @@ public void handleAwareness(
     try {
         String base64 = new String(rawPayload, java.nio.charset.StandardCharsets.UTF_8);
         // Broadcast awareness to all room members
-        messaging.convertAndSend("/topic/yjs/" + roomId + "/awareness", base64);
+        redisPublisher.publish("/topic/yjs/" + roomId + "/awareness", base64);
     } catch (Exception e) {
         log.error("[Yjs] Awareness error for room {}: {}", roomId, e.getMessage());
     }
@@ -131,7 +131,7 @@ public void handleFileAwareness(
     if (rawPayload == null || rawPayload.length == 0) return;
     try {
         String base64 = new String(rawPayload, java.nio.charset.StandardCharsets.UTF_8);
-        messaging.convertAndSend(
+        redisPublisher.publish(
             "/topic/yjs/" + roomId + "/file/" + fileId + "/awareness",
             base64
         );
