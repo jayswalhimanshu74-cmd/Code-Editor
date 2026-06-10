@@ -77,9 +77,14 @@ Workspace supports:
 
 ---
 
-## ▶ Remote Code Execution
+## ▶ Remote Code Execution (Native Docker Sandbox)
 
-Code execution is handled by backend APIs that send code to an external execution engine.
+Code execution is handled by a natively hosted, distributed Docker Sandbox engine, removing all dependencies on external compilation APIs.
+
+Architecture Highlights:
+- **Ephemeral Isolation:** Every code execution spawns a secure, short-lived, throwaway Docker container (`--rm`).
+- **Resource Constraints:** Enforces strict limits (256MB RAM, 0.5 CPU) to guarantee platform stability.
+- **Zombie Process Protection:** Utilizes Linux `timeout` utilities natively to instantly kill infinite loops.
 
 Supported languages:
 
@@ -117,18 +122,17 @@ No page refresh required.
 
 ---
 
-## 📜 Execution History
+Stores a full execution state machine and lifecycle log per run:
 
-Stores:
-
+- States: `QUEUED`, `RUNNING`, `SUCCESS`, `FAILED`, `TIMEOUT`
 - source code
-- output
+- output (stdout/stderr)
 - errors
 - language
 - execution duration
 - exit codes
 
-Saved using PostgreSQL.
+Saved reliably using PostgreSQL.
 
 ---
 
@@ -158,13 +162,16 @@ Planned:
 
 Frontend ↔ REST API/WebSocket ↔ Spring Boot Backend ↔ PostgreSQL
 
-Real-time communication:
-
+**Real-time communication:**
 Frontend ↔ STOMP ↔ WebSocket ↔ Backend
 
-Execution flow:
-
-Editor → Backend → External Compiler API → Output
+**Distributed Execution Engine:**
+Frontend (Run Click) 
+  → ExecutionController (HTTP) 
+  → Redis Queue (`execution:queue:{roomId}`)
+  → Scalable Execution Worker
+  → Ephemeral Docker Sandbox (`cloud-ide-workspace` Image)
+  → Live STOMP Stream & PostgreSQL Persistence
 
 ---
 
@@ -371,14 +378,13 @@ DELETE /api/files
 
 # Future Enhancements
 
-- AI Copilot
-- Cursor presence tracking
-- Video calling
-- Voice collaboration
-- GitHub integration
-- Language Server Protocol support
-- Auto completion intelligence
-- Shared terminal
+- **Kubernetes Migration:** Move from raw Docker daemon API to Kubernetes Pod-based execution sandboxes.
+- **Language Server Protocol (LSP):** Add intelligent auto-completion, linting, and hover definitions.
+- **Advanced AI Copilot:** Context-aware codebase debugging and code generation.
+- **WebRTC Video/Audio:** Native team video calling alongside live chat.
+- **Shared Live Terminal:** PTY-based interactive terminal broadcasting.
+- **GitHub Integration:** Commit, push, and pull directly from the collaborative workspace.
+- **Cursor Presence:** Visual indicators of where team members are actively typing.
 
 ---
 
@@ -400,7 +406,9 @@ Completed:
 
 ✅ Code Synchronization
 
-✅ Execution History
+✅ Persistent Execution History
+
+✅ Distributed Docker Execution Engine (Redis Orchestrated)
 
 🚧 AI Assistant
 
