@@ -18,6 +18,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Settings from './pages/Settings/Settings';
 import MobileGuard from './components/MobileGaurd';
 import ActivityLog from './pages/ActivityLog/ActivityLog';
+import DashboardLayout from './layouts/DashboardLayout';
 
 function App() {
   return (
@@ -29,17 +30,21 @@ function App() {
         <Route path="/register" element={<Register />} />
 
 
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/create-room" element={<ProtectedRoute><CreateRoom /></ProtectedRoute>} />
-        <Route path="/join-room" element={<ProtectedRoute><JoinRoom /></ProtectedRoute>} />
+        {/* Shared Dashboard Layout Routes */}
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/create-room" element={<CreateRoom />} />
+          <Route path="/join-room" element={<JoinRoom />} />
+          <Route path="/files" element={<FileManager />} />
+          <Route path="/activity" element={<ActivityLog />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+
+        {/* Editor & Lobby (No Layout) */}
         <Route path="/room-lobby/:roomId" element={<ProtectedRoute><RoomLobby /></ProtectedRoute>} />
         <Route path="/workspace/:roomId" element={<ProtectedRoute><MobileGuard><EditorWorkspace /></MobileGuard></ProtectedRoute>} />
-        <Route path="/files" element={<ProtectedRoute><FileManager /></ProtectedRoute>} />
-        <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-        <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-
 
         <Route path="*" element={<NotFound />} />
       </Routes>

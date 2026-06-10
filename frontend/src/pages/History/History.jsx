@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
 import { executionService } from '../../api/executionService';
-import Sidebar from '../../components/Sidebar';
 
 const LANGUAGE_LABELS = {
     javascript: 'JavaScript', typescript: 'TypeScript', python: 'Python',
@@ -199,17 +198,10 @@ const History = () => {
         .sort((a, b) => parseDate(b.executedAt) - parseDate(a.executedAt));
 
     return (
-        <div className="flex overflow-hidden h-screen">
-
-            {/* Sidebar */}
-            <Sidebar />
-
-            {/* Main */}
-            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-
-                {/* Header */}
-                <header className="bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 h-14 flex items-center justify-between px-md shrink-0 gap-3">
-                    <h1 className="font-headline-md text-headline-md font-bold text-on-surface">Execution History</h1>
+        <div className="flex-1 w-full h-full flex flex-col text-on-surface">
+                {/* Toolbar */}
+                <div className="bg-[#0a0a0a]/50 border border-[#222] rounded-xl mb-4 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
+                    <h2 className="font-headline-md text-[14px] font-bold text-on-surface hidden sm:block">Filter History</h2>
 
                     <div className="flex items-center gap-3 flex-1 justify-end">
                         {/* Room selector */}
@@ -239,7 +231,7 @@ const History = () => {
                             />
                         </div>
                     </div>
-                </header>
+                </div>
 
                 {/* Content */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-md flex flex-col gap-3">
@@ -325,7 +317,6 @@ const History = () => {
                         </>
                     )}
                 </div>
-            </div>
         </div>
     );
 };

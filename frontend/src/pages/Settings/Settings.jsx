@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { userService } from '../../api/userService';
-import Sidebar from '../../components/Sidebar';
 
 const AVATAR_COLORS = [
     '#6366f1','#8b5cf6','#ec4899','#f43f5e',
@@ -104,12 +103,7 @@ const Settings = () => {
     ];
 
     const s = {
-        page:   { display:'flex', height:'100vh', overflow:'hidden' },
-        logo:   { padding:'24px 20px 20px', borderBottom:'1px solid rgba(255,255,255,0.05)' },
-        logoTxt:{ fontSize:18, fontWeight:800, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-0.5px' },
-        navLnk: (active) => ({ display:'flex', alignItems:'center', gap:10, padding:'11px 20px', textDecoration:'none', fontSize:13, color: active ? '#818cf8' : 'rgba(255,255,255,0.45)', background: active ? 'rgba(99,102,241,0.1)' : 'transparent', borderLeft: active ? '2px solid #6366f1' : '2px solid transparent', transition:'all 0.15s' }),
         main:   { flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 },
-        header: { height:60, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 32px', flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.05)', background:'rgba(255,255,255,0.01)' },
         tabBar: { display:'flex', gap:4, background:'rgba(255,255,255,0.03)', padding:4, borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' },
         tab:    (active) => ({ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:9, border:'none', cursor:'pointer', fontSize:12, fontWeight:500, transition:'all 0.15s', background: active ? 'rgba(99,102,241,0.2)' : 'transparent', color: active ? '#818cf8' : 'rgba(255,255,255,0.4)', boxShadow: active ? '0 1px 3px rgba(0,0,0,0.3)' : 'none' }),
         scroll: { flex:1, overflowY:'auto', padding:'28px 32px' },
@@ -131,18 +125,10 @@ const Settings = () => {
     };
 
     return (
-        <div style={s.page}>
-
-            {/* Sidebar */}
-            <Sidebar />
-
-            {/* Main */}
-            <div style={s.main}>
-
-                {/* Header */}
-                <header style={s.header}>
+        <div className="flex-1 w-full h-full text-on-surface">
+                {/* Tabs Header */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 32px 20px 32px', flexShrink:0 }}>
                     <div>
-                        <div style={{ fontSize:18, fontWeight:700, letterSpacing:'-0.3px' }}>Settings</div>
                         <div style={{ fontSize:11, color:'rgba(255,255,255,0.35)', marginTop:2 }}>Manage your account and preferences</div>
                     </div>
                     {/* Tab bar */}
@@ -154,7 +140,7 @@ const Settings = () => {
                             </button>
                         ))}
                     </div>
-                </header>
+                </div>
 
                 <div style={s.scroll}>
                     <div style={{ maxWidth:580 }}>
@@ -378,12 +364,10 @@ const Settings = () => {
                                         </button>
                                     </div>
                                 </div>
-                            </>
+                            </>     
                         )}
-
                     </div>
                 </div>
-            </div>
 
             {/* Toast */}
             {toast && (

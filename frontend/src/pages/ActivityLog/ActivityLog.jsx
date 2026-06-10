@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import useRoomStore from '../../store/roomStore';
 import { logService } from '../../api/logService';
 import { wsService } from '../../api/websocketService';
-import Sidebar from '../../components/Sidebar';
+
 
 const ACTION_META = {
     EDIT:   { icon: 'edit',         color: 'text-blue-400 bg-blue-400/10',   label: 'Edited'  },
@@ -158,15 +158,12 @@ const ActivityLog = () => {
     };
 
     return (
-        <div className="flex overflow-hidden h-screen">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-
-                {/* Header */}
-                <header className="bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 h-14 flex items-center justify-between px-4 shrink-0 gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-[18px]">history</span>
-                        <h1 className="font-bold text-on-surface text-[15px]">Activity Log</h1>
+        <div className="flex-1 w-full h-full flex flex-col text-on-surface">
+                {/* Toolbar */}
+                <div className="bg-[#0a0a0a]/50 border border-[#222] rounded-xl mb-4 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2 hidden sm:flex">
+                        <span className="material-symbols-outlined text-primary text-[18px]">filter_list</span>
+                        <h2 className="font-bold text-on-surface text-[14px]">Filter Activity</h2>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
@@ -203,7 +200,7 @@ const ActivityLog = () => {
                             ))}
                         </select>
                     </div>
-                </header>
+                </div>
 
                 {/* Stats row */}
                 <div className="flex gap-3 px-4 pt-4 flex-wrap shrink-0">
@@ -268,7 +265,6 @@ const ActivityLog = () => {
                         </div>
                     )}
                 </div>
-            </div>
         </div>
     );
 };
