@@ -36,12 +36,18 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         // Extract roomId from query parameter (e.g. /ws/terminal?roomId=uuid)
         String query = session.getUri().getQuery();
         String roomId = null;
-        if (query != null && query.contains("roomId=")) {
+        String username = "Developer";
+        String email = "dev@cloudide.com";
+        
+        if (query != null) {
             String[] params = query.split("&");
             for (String param : params) {
                 if (param.startsWith("roomId=")) {
                     roomId = param.substring(7);
-                    break;
+                } else if (param.startsWith("username=")) {
+                    username = java.net.URLDecoder.decode(param.substring(9), StandardCharsets.UTF_8);
+                } else if (param.startsWith("email=")) {
+                    email = java.net.URLDecoder.decode(param.substring(6), StandardCharsets.UTF_8);
                 }
             }
         }
@@ -56,6 +62,21 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         try {
             // Ensure container is running
             String containerId = dockerWorkspaceService.startWorkspace(roomId);
+
+            // Configure Git identity in the container
+            try {
+                ExecCreateCmdResponse configName = dockerClient.execCreateCmd(containerId)
+                        .withCmd("git", "config", "--global", "user.name", username)
+                        .exec();
+                dockerClient.execStartCmd(configName.getId()).exec(new ExecStartResultCallback()).awaitCompletion();
+
+                ExecCreateCmdResponse configEmail = dockerClient.execCreateCmd(containerId)
+                        .withCmd("git", "config", "--global", "user.email", email)
+                        .exec();
+                dockerClient.execStartCmd(configEmail.getId()).exec(new ExecStartResultCallback()).awaitCompletion();
+            } catch (Exception e) {
+                log.warn("Failed to set git config in container {}", containerId, e);
+            }
 
             // Create an Exec instance for /bin/bash
             ExecCreateCmdResponse exec = dockerClient.execCreateCmd(containerId)
@@ -98,8 +119,12 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         PipedOutputStream out = sessionInputStreams.get(session.getId());
         if (out != null) {
-            out.write(message.getPayload().getBytes(StandardCharsets.UTF_8));
+            String payload = message.getPayload();
+            log.info("Received terminal input from frontend: {}", payload);
+            out.write(payload.getBytes(StandardCharsets.UTF_8));
             out.flush();
+        } else {
+            log.warn("No PipedOutputStream found for session {}", session.getId());
         }
     }
 

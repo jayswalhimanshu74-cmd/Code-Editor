@@ -5,17 +5,24 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.exaple.codeEditer.Code.Editor.entity.File;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
+import com.github.dockerjava.api.model.Frame;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,12 +36,14 @@ public class DockerWorkspaceService {
     private final DockerClient dockerClient;
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     
     // Map Room ID to Docker Container ID
     private final Map<String, String> activeWorkspaces = new ConcurrentHashMap<>();
 
-    private static final String BASE_IMAGE = "ubuntu:22.04";
+    private static final String BASE_IMAGE = "cloud-ide-workspace:latest";
     private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
+    private static final String DOCKERFILE_PATH = System.getProperty("user.dir") + "/src/main/resources/workspace-image";
 
     /**
      * Spins up an isolated Linux container for the workspace.
@@ -42,36 +51,68 @@ public class DockerWorkspaceService {
      * @param roomId The UUID of the room/workspace
      * @return The ID of the created Docker container
      */
-    public String startWorkspace(String roomId) {
+    public synchronized String startWorkspace(String roomId) {
         if (activeWorkspaces.containsKey(roomId)) {
             return activeWorkspaces.get(roomId);
         }
 
         try {
-            // 1. Ensure image exists (pull if necessary)
+            // 1. Ensure image exists (build if necessary)
             try {
                 dockerClient.inspectImageCmd(BASE_IMAGE).exec();
             } catch (Exception e) {
-                log.info("Pulling base image {}... this may take a moment.", BASE_IMAGE);
-                dockerClient.pullImageCmd(BASE_IMAGE).start().awaitCompletion();
+                log.info("Building custom base image {}... this may take a few minutes.", BASE_IMAGE);
+                java.io.File dockerfileDir = new java.io.File(DOCKERFILE_PATH);
+                if (!dockerfileDir.exists()) {
+                    throw new RuntimeException("Dockerfile directory not found at " + DOCKERFILE_PATH);
+                }
+                dockerClient.buildImageCmd(dockerfileDir)
+                        .withTags(java.util.Collections.singleton(BASE_IMAGE))
+                        .start()
+                        .awaitCompletion();
+                log.info("Successfully built custom image {}", BASE_IMAGE);
             }
 
             // 2. Sync database files to host filesystem
             syncWorkspaceToHost(roomId);
             String hostPath = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().toString();
 
-            // 3. Create the container
+            String containerName = "workspace-" + roomId;
+
+            // 3. Cleanup orphaned container if backend restarted abruptly
+            try {
+                dockerClient.removeContainerCmd(containerName).withForce(true).exec();
+                log.info("Cleaned up orphaned container {}", containerName);
+            } catch (Exception ignored) {
+                // Container does not exist, safe to proceed
+            }
+
+            // 4. Create the container
+            // Pre-expose common development ports (3000, 5000, 5173, 8000, 8080)
+            List<ExposedPort> exposedPorts = Arrays.asList(
+                    ExposedPort.tcp(3000), ExposedPort.tcp(5000), ExposedPort.tcp(5173),
+                    ExposedPort.tcp(8000), ExposedPort.tcp(8080)
+            );
+            
+            Ports portBindings = new Ports();
+            for (ExposedPort port : exposedPorts) {
+                // Bind to 0 to dynamically allocate an available host port
+                portBindings.bind(port, Ports.Binding.bindIp("0.0.0.0"));
+            }
+
             // Use tail -f /dev/null so the container stays alive in the background
             CreateContainerResponse container = dockerClient.createContainerCmd(BASE_IMAGE)
-                    .withName("workspace-" + roomId)
+                    .withName(containerName)
                     .withCmd("tail", "-f", "/dev/null")
                     .withWorkingDir("/workspace")
+                    .withExposedPorts(exposedPorts)
                     // Basic resource limits for security (512MB RAM, 0.5 CPU)
                     .withHostConfig(HostConfig.newHostConfig()
                             .withMemory(512 * 1024 * 1024L)
                             .withCpuQuota(50000L) // 50% of a single core
                             .withCpuPeriod(100000L)
                             .withBinds(new Bind(hostPath, new Volume("/workspace")))
+                            .withPortBindings(portBindings)
                     )
                     .exec();
 
@@ -105,6 +146,29 @@ public class DockerWorkspaceService {
 
     public String getContainerId(String roomId) {
         return activeWorkspaces.get(roomId);
+    }
+
+    /**
+     * Inspects the running container and returns the dynamically assigned host port for the requested container port.
+     */
+    public Integer getMappedHostPort(String roomId, int containerPort) {
+        String containerId = getContainerId(roomId);
+        if (containerId == null) {
+            return null;
+        }
+        try {
+            InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
+            Ports ports = inspect.getNetworkSettings().getPorts();
+            if (ports != null) {
+                Ports.Binding[] bindings = ports.getBindings().get(ExposedPort.tcp(containerPort));
+                if (bindings != null && bindings.length > 0) {
+                    return Integer.parseInt(bindings[0].getHostPortSpec());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get mapped port for room {}: {}", roomId, e.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -147,5 +211,116 @@ public class DockerWorkspaceService {
         } catch (IOException e) {
             log.error("Failed to write file {} to disk", file.getName(), e);
         }
+    }
+
+    public com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics getContainerMetrics(String roomId) {
+        String containerId = getContainerId(roomId);
+        if (containerId == null) {
+            return new com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics(0.0, 0.0, 512.0);
+        }
+
+        try {
+            java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.atomic.AtomicReference<com.github.dockerjava.api.model.Statistics> statsRef = new java.util.concurrent.atomic.AtomicReference<>();
+
+            dockerClient.statsCmd(containerId)
+                    .withNoStream(true)
+                    .exec(new com.github.dockerjava.api.async.ResultCallback.Adapter<com.github.dockerjava.api.model.Statistics>() {
+                        @Override
+                        public void onNext(com.github.dockerjava.api.model.Statistics stats) {
+                            statsRef.set(stats);
+                            latch.countDown();
+                        }
+                    });
+
+            latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+            com.github.dockerjava.api.model.Statistics stats = statsRef.get();
+
+            if (stats == null || stats.getCpuStats() == null || stats.getMemoryStats() == null) {
+                return new com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics(0.0, 0.0, 512.0);
+            }
+
+            // CPU calculation
+            double cpuPercent = 0.0;
+            Long cpuDelta = stats.getCpuStats().getCpuUsage().getTotalUsage() - stats.getPreCpuStats().getCpuUsage().getTotalUsage();
+            Long systemCpuDelta = stats.getCpuStats().getSystemCpuUsage() - stats.getPreCpuStats().getSystemCpuUsage();
+
+            if (systemCpuDelta > 0.0 && cpuDelta > 0.0) {
+                int onlineCpus = stats.getCpuStats().getOnlineCpus() != null ? stats.getCpuStats().getOnlineCpus().intValue() : 1;
+                cpuPercent = ((double) cpuDelta / (double) systemCpuDelta) * onlineCpus * 100.0;
+            }
+
+            // Memory calculation
+            Long usage = stats.getMemoryStats().getUsage();
+            Long limit = stats.getMemoryStats().getLimit();
+            
+            // Docker memory usage
+            double memUsageMb = usage / (1024.0 * 1024.0);
+            double memLimitMb = limit / (1024.0 * 1024.0);
+
+            return new com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics(
+                    Math.round(cpuPercent * 100.0) / 100.0,
+                    Math.round(memUsageMb * 100.0) / 100.0,
+                    Math.round(memLimitMb * 100.0) / 100.0
+            );
+
+        } catch (Exception e) {
+            log.warn("Failed to fetch metrics for room {}: {}", roomId, e.getMessage());
+            return new com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics(0.0, 0.0, 512.0);
+        }
+    }
+
+    public void executeCommandStream(String roomId, String cmd, String workingDir, String execId) {
+        // Now mostly a legacy fallback for the terminal, or we can leave it.
+        // The real execution sandbox is handled by runEphemeralSandbox.
+    }
+
+    public void runEphemeralSandbox(String roomId, String execId, String cmd, StringBuilder fullOutput) {
+        String hostPath = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().toString();
+        String safeCmd = "timeout -k 2s 14s bash -c '" + cmd.replace("'", "'\\''") + "'";
+
+        try {
+            com.github.dockerjava.api.command.CreateContainerResponse container = dockerClient.createContainerCmd(BASE_IMAGE)
+                    .withCmd("/bin/bash", "-c", safeCmd)
+                    .withWorkingDir("/workspace")
+                    .withHostConfig(com.github.dockerjava.api.model.HostConfig.newHostConfig()
+                            .withMemory(256 * 1024 * 1024L) // 256MB limit for execution sandbox
+                            .withCpuQuota(50000L) // 50% CPU
+                            .withCpuPeriod(100000L)
+                            .withBinds(new com.github.dockerjava.api.model.Bind(hostPath, new com.github.dockerjava.api.model.Volume("/workspace")))
+                            .withAutoRemove(true)) // Ensure container dies after execution
+                    .exec();
+
+            dockerClient.startContainerCmd(container.getId()).exec();
+
+            dockerClient.logContainerCmd(container.getId())
+                    .withStdOut(true)
+                    .withStdErr(true)
+                    .withFollowStream(true)
+                    .exec(new com.github.dockerjava.api.async.ResultCallbackTemplate<com.github.dockerjava.api.async.ResultCallback<Frame>, Frame>() {
+                        @Override
+                        public void onNext(Frame item) {
+                            String type = item.getStreamType().name().toLowerCase();
+                            String data = new String(item.getPayload(), java.nio.charset.StandardCharsets.UTF_8);
+                            fullOutput.append(data);
+                            sendExecutionMessage(roomId, execId, type, data);
+                        }
+                    }).awaitCompletion(15, java.util.concurrent.TimeUnit.SECONDS);
+
+            sendExecutionMessage(roomId, execId, "system", "\n[Process Exited]");
+        } catch (InterruptedException e) {
+            sendExecutionMessage(roomId, execId, "error", "\n[Execution Timeout: Process forcefully terminated]");
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            sendExecutionMessage(roomId, execId, "error", "\n[Execution Error: " + e.getMessage() + "]");
+        }
+    }
+
+    private void sendExecutionMessage(String roomId, String execId, String type, String data) {
+        java.util.Map<String, String> payload = new java.util.HashMap<>();
+        payload.put("execId", execId);
+        payload.put("type", type);
+        payload.put("data", data);
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/execution", payload);
     }
 }

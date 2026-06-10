@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
+import useAuthStore from '../../../store/authStore';
 
 const TerminalPanel = ({ roomId }) => {
+    const { user } = useAuthStore();
     const terminalRef = useRef(null);
     const xtermRef = useRef(null);
     const wsRef = useRef(null);
@@ -27,17 +29,20 @@ const TerminalPanel = ({ roomId }) => {
         });
 
         const fitAddon = new FitAddon();
+        term.loadAddon(fitAddon);
+
         // Delay term.open to guarantee React has flushed the DOM
-        setTimeout(() => {
+        const openTimeout = setTimeout(() => {
             if (!terminalRef.current) return;
             try {
                 term.open(terminalRef.current);
                 
                 // Use ResizeObserver for robust fitting
                 const resizeObserver = new ResizeObserver(() => {
-                    if (terminalRef.current && terminalRef.current.clientHeight > 0 && term.element) {
+                    if (terminalRef.current && terminalRef.current.clientWidth > 0 && terminalRef.current.clientHeight > 0 && term.element) {
                         try {
                             fitAddon.fit();
+                            // Optional: send resize to backend if supported later
                         } catch (e) {}
                     }
                 });
@@ -56,13 +61,17 @@ const TerminalPanel = ({ roomId }) => {
         // Connect to raw WebSocket on backend
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         // Assuming backend is on port 8080 during dev
-        const wsUrl = `${wsProtocol}//localhost:8080/ws/terminal?roomId=${roomId}`;
+        let wsUrl = `${wsProtocol}//localhost:8080/ws/terminal?roomId=${roomId}`;
+        if (user) {
+            wsUrl += `&username=${encodeURIComponent(user.username)}&email=${encodeURIComponent(user.email)}`;
+        }
         
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
             setConnected(true);
+            term.reset();
             term.writeln('\x1b[32m[✓] Connected to Cloud IDE Container Workspace\x1b[0m');
         };
 
@@ -87,11 +96,15 @@ const TerminalPanel = ({ roomId }) => {
         });
 
         return () => {
+            clearTimeout(openTimeout);
             if (terminalRef.current?._resizeObserver) {
                 terminalRef.current._resizeObserver.disconnect();
             }
             ws.close();
             term.dispose();
+            if (terminalRef.current) {
+                terminalRef.current.innerHTML = '';
+            }
         };
     }, [roomId]);
 
@@ -103,8 +116,10 @@ const TerminalPanel = ({ roomId }) => {
                     {connected ? 'workspace-active' : 'disconnected'}
                 </span>
             </div>
-            <div className="flex-1 overflow-hidden p-2 relative min-h-[100px] min-w-[100px]" ref={terminalRef}>
-                {/* XTerm will inject canvas/div elements here */}
+            <div className="flex-1 overflow-hidden p-2">
+                <div className="w-full h-full relative" ref={terminalRef}>
+                    {/* XTerm will inject canvas/div elements here */}
+                </div>
             </div>
         </div>
     );

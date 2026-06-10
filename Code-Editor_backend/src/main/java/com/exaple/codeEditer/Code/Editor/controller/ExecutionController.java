@@ -10,7 +10,7 @@ import com.exaple.codeEditer.Code.Editor.entity.Room;
 import com.exaple.codeEditer.Code.Editor.repository.ExecutionHistoryRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomMemberRepository;
-import com.exaple.codeEditer.Code.Editor.service.PistonService;
+import com.exaple.codeEditer.Code.Editor.service.ExecutionRouterService;
 import com.exaple.codeEditer.Code.Editor.service.RateLimitService;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ExecutionController {
 
-    private final PistonService pistonService;
+    private final ExecutionRouterService executionRouterService;
     private final ExecutionHistoryRepository executionHistoryRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final RoomRepository roomRepository;
@@ -61,9 +61,13 @@ public class ExecutionController {
     if (!isMember) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
-        return ResponseEntity.ok(
-                pistonService.execute(roomId, request, userDetails.getUsername())
-        );
+        // Execute via Native Docker container (asynchronous streaming over WS)
+        String execId = executionRouterService.executeNative(roomId, request, userDetails.getUsername());
+
+        return ResponseEntity.accepted().body(ExecuteResponse.builder()
+                .status("Execution started. Stream will be sent via WebSocket.")
+                .execId(execId)
+                .build());
     }
 
    @Transactional

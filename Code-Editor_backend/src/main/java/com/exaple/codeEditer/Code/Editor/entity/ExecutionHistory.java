@@ -46,6 +46,19 @@ public class ExecutionHistory {
     @Column(name = "duration_ms")
     private Integer durationMs;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ExecutionStatus status = ExecutionStatus.QUEUED;
+
+    public enum ExecutionStatus {
+        QUEUED,
+        RUNNING,
+        SUCCESS,
+        FAILED,
+        TIMEOUT,
+        KILLED
+    }
+
     @CreationTimestamp
     @Column(name = "executed_at", updatable = false)
     private LocalDateTime executedAt;
