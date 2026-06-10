@@ -288,6 +288,7 @@ public class DockerWorkspaceService {
                             .withCpuQuota(50000L) // 50% CPU
                             .withCpuPeriod(100000L)
                             .withBinds(new com.github.dockerjava.api.model.Bind(hostPath, new com.github.dockerjava.api.model.Volume("/workspace")))
+                            .withNetworkMode("none") // Disable networking for security
                             .withAutoRemove(true)) // Ensure container dies after execution
                     .exec();
 

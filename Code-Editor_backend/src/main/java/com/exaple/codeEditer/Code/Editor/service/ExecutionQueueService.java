@@ -17,7 +17,7 @@ public class ExecutionQueueService {
     private final ObjectMapper objectMapper;
 
     public void enqueueExecution(UUID roomId, String execId) {
-        String queueKey = "execution:queue:" + roomId.toString();
+        String queueKey = "execution:queue:global";
         try {
             redisTemplate.opsForList().rightPush(queueKey, execId);
             log.info("Queued execution {} for room {}", execId, roomId);

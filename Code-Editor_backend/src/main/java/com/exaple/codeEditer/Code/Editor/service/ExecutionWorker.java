@@ -9,8 +9,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 @RequiredArgsConstructor
@@ -21,39 +25,58 @@ public class ExecutionWorker {
     private final ExecutionHistoryRepository executionHistoryRepository;
     private final DockerWorkspaceService dockerWorkspaceService;
 
+    private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
+
     @Scheduled(fixedDelay = 500)
     public void processQueues() {
-        // Find all room queues
-        Set<String> queueKeys = redisTemplate.keys("execution:queue:*");
-        if (queueKeys == null || queueKeys.isEmpty()) return;
-
-        for (String queueKey : queueKeys) {
-            String roomIdStr = queueKey.replace("execution:queue:", "");
-            String lockKey = "execution:lock:" + roomIdStr;
-
-            // Try to lock the room so only one execution runs per room concurrently across all nodes
-            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(20));
-            if (Boolean.TRUE.equals(acquired)) {
-                try {
-                    // Pop the next execution
-                    String execId = redisTemplate.opsForList().leftPop(queueKey);
-                    if (execId != null) {
-                        processExecution(roomIdStr, execId);
-                    }
-                } finally {
-                    redisTemplate.delete(lockKey);
-                }
-            }
-        }
-    }
-
-    private void processExecution(String roomId, String execId) {
+        String queueKey = "execution:queue:global";
+        
+        // Pop the next execution
+        String execId = redisTemplate.opsForList().leftPop(queueKey);
+        if (execId == null) return;
+        
         ExecutionHistory history = executionHistoryRepository.findById(UUID.fromString(execId)).orElse(null);
         if (history == null || history.getStatus() != ExecutionHistory.ExecutionStatus.QUEUED) return;
 
+        String roomIdStr = history.getRoom().getId().toString();
+        String lockKey = "execution:lock:" + roomIdStr;
+
+        // Try to lock the room
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(20));
+        if (Boolean.TRUE.equals(acquired)) {
+            try {
+                processExecution(roomIdStr, history);
+            } finally {
+                redisTemplate.delete(lockKey);
+            }
+        } else {
+            // Room is locked by another execution, re-enqueue at the end
+            redisTemplate.opsForList().rightPush(queueKey, execId);
+        }
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public void recoverStuckExecutions() {
+        // Find tasks stuck in RUNNING for more than 2 minutes (crashed nodes)
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(2);
+        List<ExecutionHistory> stuck = executionHistoryRepository.findAll().stream()
+            .filter(h -> h.getStatus() == ExecutionHistory.ExecutionStatus.RUNNING)
+            .filter(h -> h.getExecutedAt().isBefore(threshold))
+            .toList();
+            
+        for (ExecutionHistory h : stuck) {
+            h.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
+            h.setStdout(h.getStdout() + "\n[System: Execution failed due to worker crash]");
+            executionHistoryRepository.save(h);
+            log.warn("Recovered stuck execution {}", h.getId());
+        }
+    }
+
+    private void processExecution(String roomId, ExecutionHistory history) {
         // 1. Mark as RUNNING
         history.setStatus(ExecutionHistory.ExecutionStatus.RUNNING);
         executionHistoryRepository.save(history);
+        String execId = history.getId().toString();
         
         long startTime = System.currentTimeMillis();
         StringBuilder fullOutput = new StringBuilder();
@@ -61,26 +84,40 @@ public class ExecutionWorker {
         // 2. Generate command
         String lang = history.getLanguage().toLowerCase();
         String runCommand = "";
+        String filename = "main.txt";
+
         switch (lang) {
             case "java":
+                filename = "Main.java";
                 runCommand = "javac Main.java && java Main";
                 break;
             case "nodejs":
             case "javascript":
             case "js":
+                filename = "index.js";
                 runCommand = "node index.js";
                 break;
             case "python":
             case "python3":
             case "py":
+                filename = "main.py";
                 runCommand = "python3 main.py";
                 break;
             default:
+                filename = "main.txt";
                 runCommand = "cat main.txt";
                 break;
         }
 
         try {
+            // Write source code to the shared workspace directory
+            Path roomDir = Paths.get(HOST_WORKSPACES_DIR, roomId);
+            if (!Files.exists(roomDir)) {
+                Files.createDirectories(roomDir);
+            }
+            Path filePath = roomDir.resolve(filename);
+            Files.writeString(filePath, history.getSourceCode());
+
             // 3. Execute in ephemeral sandbox
             dockerWorkspaceService.runEphemeralSandbox(roomId, execId, runCommand, fullOutput);
             
