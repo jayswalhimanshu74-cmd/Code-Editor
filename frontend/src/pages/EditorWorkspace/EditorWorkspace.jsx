@@ -1252,7 +1252,7 @@ const EditorWorkspace = () => {
     <div className="flex flex-col h-screen bg-background text-on-surface overflow-hidden select-none">
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <header className="flex-shrink-0 h-11 bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/30 flex items-center px-3 gap-3 z-30">
+      <header className="flex-shrink-0 h-11 bg-[#0a0a0a]/95 backdrop-blur-2xl border-b border-[#222] flex items-center px-3 gap-3 z-30">
 
         {/* Back */}
         <button
@@ -1274,7 +1274,7 @@ const EditorWorkspace = () => {
           </span>
         </button>
 
-        <div className="w-px h-5 bg-outline-variant/30 flex-shrink-0" />
+        <div className="w-px h-5 bg-[#333] flex-shrink-0" />
 
         {/* Room name + language */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1342,13 +1342,13 @@ const EditorWorkspace = () => {
           </div>
         </div>
 
-        <div className="w-px h-5 bg-outline-variant/30 flex-shrink-0" />
+        <div className="w-px h-5 bg-[#333] flex-shrink-0" />
 
         {/* Run button */}
         <button
           onClick={handleRun}
           disabled={isRunning}
-          className="flex items-center gap-1.5 bg-gradient-to-b from-[#22c55e] to-[#16a34a] text-white px-3 py-1 rounded-lg font-label-sm text-[11px] font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 shadow-lg flex-shrink-0"
+          className="flex items-center gap-1.5 bg-white text-black px-4 py-1 rounded-md font-label-sm text-[11px] font-extrabold hover:scale-105 active:scale-95 transition-all disabled:opacity-60 shadow-[0_0_15px_rgba(255,255,255,0.15)] flex-shrink-0 tracking-tight"
         >
           <span className="material-symbols-outlined text-[14px]">
             {isRunning ? 'progress_activity' : 'play_arrow'}
@@ -1365,7 +1365,7 @@ const EditorWorkspace = () => {
           <>
             <aside
               style={{ width: fileTreeWidth }}
-              className="flex-shrink-0 h-full bg-surface-container-lowest/70 border-r border-outline-variant/20 flex flex-col overflow-hidden"
+              className="flex-shrink-0 h-full bg-[#050505] border-r border-[#222] flex flex-col overflow-hidden"
             >
               <div className="flex-1 overflow-hidden">
                 <FileTree
@@ -1378,7 +1378,7 @@ const EditorWorkspace = () => {
                   language={language}
                 />
               </div>
-              <div className="h-[40%] flex-shrink-0 border-t border-outline-variant/20">
+              <div className="h-[40%] flex-shrink-0 border-t border-[#222]">
                 <GitPanel roomId={roomId} onFileDiff={handleFileDiff} />
               </div>
             </aside>
@@ -1397,7 +1397,7 @@ const EditorWorkspace = () => {
         <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
 
           {/* File tabs */}
-          <div className="flex-shrink-0 flex items-center bg-surface-container-low/40 border-b border-outline-variant/20 overflow-x-auto scrollbar-none">
+          <div className="flex-shrink-0 flex items-center bg-[#0a0a0a] border-b border-[#222] overflow-x-auto scrollbar-none">
             {openFiles.map((file) => (
               <div
                 key={file.id}
@@ -1408,7 +1408,7 @@ const EditorWorkspace = () => {
                   }`}
               >
                 {activeFile?.id === file.id && (
-                  <span className="absolute top-0 left-0 right-0 h-0.5 bg-primary" />
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-white shadow-[0_-2px_10px_rgba(255,255,255,0.5)]" />
                 )}
                 <span className="material-symbols-outlined text-[11px] opacity-60">
                   {file.type === 'diff' ? 'difference' : getFileIcon(file.name).icon}
@@ -1530,7 +1530,7 @@ const EditorWorkspace = () => {
         {/* ── Right Panel ── */}
         <aside
           style={{ width: rightPanelWidth }}
-          className="flex-shrink-0 h-full bg-surface-container-lowest/70 border-l border-outline-variant/20 flex flex-col overflow-hidden hidden md:flex"
+          className="flex-shrink-0 h-full bg-[#050505] border-l border-[#222] flex flex-col overflow-hidden hidden md:flex"
         >
           {/* Right panel tab buttons — add snapshot tab */}
             <button
@@ -1544,7 +1544,7 @@ const EditorWorkspace = () => {
                 Snapshots
             </button>
           {/* Tabs */}
-          <div className="flex-shrink-0 flex border-b border-outline-variant/20 bg-surface-container-low/30">
+          <div className="flex-shrink-0 flex border-b border-[#222] bg-[#0a0a0a]">
             {[
               { id: 'ai', icon: 'smart_toy', label: 'AI' },
               { id: 'output', icon: 'data_object', label: 'Output' },
@@ -1556,9 +1556,9 @@ const EditorWorkspace = () => {
               <button
                 key={tab.id}
                 onClick={() => setRightTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-label-sm transition-all border-b-2 relative ${rightTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/20'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-label-sm transition-all border-b-[2px] relative ${rightTab === tab.id
+                    ? 'border-white text-white shadow-[inset_0_-2px_10px_rgba(255,255,255,0.1)]'
+                    : 'border-transparent text-on-surface-variant hover:text-white hover:bg-white/5'
                   }`}
               >
                 <span className="material-symbols-outlined text-[14px]">{tab.icon}</span>
@@ -1604,7 +1604,7 @@ const EditorWorkspace = () => {
       </div>
 
       {/* ── Status Bar ───────────────────────────────────────────────────────── */}
-      <footer className="flex-shrink-0 h-5 bg-[#4f46e5] flex items-center px-3 gap-4 text-[10px] font-code-md text-white/80">
+      <footer className="flex-shrink-0 h-6 bg-[#000] border-t border-[#222] flex items-center px-3 gap-4 text-[10px] font-code-md text-white/60">
         <div className="flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${wsColor}`} />
           <span className="capitalize">{wsStatus}</span>

@@ -54,11 +54,11 @@ const CreateRoomModal = ({ onClose, onCreate }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-card w-full max-w-[420px] rounded-xl p-xl shadow-2xl flex flex-col gap-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#0a0a0a] border border-[#333] shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-[420px] rounded-2xl p-xl flex flex-col gap-lg animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between">
-          <h2 className="font-headline-md text-headline-md text-on-surface">Create a new room</h2>
-          <button onClick={() => onClose(null)} className="p-xs text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-variant/30 transition-all">
+          <h2 className="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">Create a new room</h2>
+          <button onClick={() => onClose(null)} className="p-xs text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -95,11 +95,11 @@ const CreateRoomModal = ({ onClose, onCreate }) => {
 
           <div className="flex gap-md mt-sm">
             <button type="button" onClick={() => onClose(null)}
-              className="flex-1 py-sm rounded-lg border border-outline-variant/40 text-on-surface-variant hover:bg-surface-variant/30 transition-all font-body-md text-body-md">
+              className="flex-1 py-sm rounded-lg border border-[#333] text-on-surface-variant hover:bg-white/5 hover:text-white transition-all font-body-md text-body-md">
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white py-sm rounded-lg font-body-md text-body-md font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-sm">
+              className="flex-1 bg-on-surface text-background py-sm rounded-lg font-body-md text-body-md font-bold hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-sm">
               {loading ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Creating...</> : 'Create room'}
             </button>
           </div>
@@ -131,11 +131,11 @@ const JoinRoomModal = ({ onClose, onJoin }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-card w-full max-w-[420px] rounded-xl p-xl shadow-2xl flex flex-col gap-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#0a0a0a] border border-[#333] shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-[420px] rounded-2xl p-xl flex flex-col gap-lg animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between">
-          <h2 className="font-headline-md text-headline-md text-on-surface">Join a room</h2>
-          <button onClick={() => onClose(null)} className="p-xs text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-variant/30 transition-all">
+          <h2 className="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">Join a room</h2>
+          <button onClick={() => onClose(null)} className="p-xs text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -160,11 +160,11 @@ const JoinRoomModal = ({ onClose, onJoin }) => {
 
           <div className="flex gap-md mt-sm">
             <button type="button" onClick={() => onClose(null)}
-              className="flex-1 py-sm rounded-lg border border-outline-variant/40 text-on-surface-variant hover:bg-surface-variant/30 transition-all font-body-md text-body-md">
+              className="flex-1 py-sm rounded-lg border border-[#333] text-on-surface-variant hover:bg-white/5 hover:text-white transition-all font-body-md text-body-md">
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white py-sm rounded-lg font-body-md text-body-md font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-sm">
+              className="flex-1 bg-on-surface text-background py-sm rounded-lg font-body-md text-body-md font-bold hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-sm">
               {loading ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Joining...</> : 'Join room'}
             </button>
           </div>
@@ -200,11 +200,11 @@ const isOwner = room.owner?.id === currentUserId;
   };
 
   return (
-    <div className="glass-card rounded-xl p-lg flex flex-col gap-md hover:border-primary/30 transition-all cursor-pointer group"
+    <div className="bg-[#0a0a0a] border border-[#333] rounded-2xl p-lg flex flex-col gap-md hover:border-[#666] hover:shadow-[0_0_30px_rgba(255,255,255,0.03)] transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-4 duration-500"
       onClick={() => onOpen(room.id)}>
       <div className="flex items-start justify-between gap-sm">
         <div className="flex-1 min-w-0">
-          <h3 className="font-headline-md text-headline-md text-on-surface truncate group-hover:text-primary transition-colors">
+          <h3 className="font-headline-md text-headline-md text-on-surface truncate tracking-tight font-semibold">
             {room.name}
           </h3>
           <div className="flex items-center gap-sm mt-xs flex-wrap">
@@ -240,7 +240,7 @@ const isOwner = room.owner?.id === currentUserId;
       </div>
 
       <button onClick={(e) => { e.stopPropagation(); onOpen(room.id); }}
-        className="w-full py-sm bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg font-label-sm text-label-sm transition-all active:scale-95">
+        className="w-full py-sm bg-white/5 hover:bg-white/10 text-on-surface border border-white/10 rounded-lg font-label-sm text-label-sm transition-all active:scale-95">
         Open room →
       </button>
     </div>
@@ -283,16 +283,16 @@ const Dashboard = () => {
 
       <main className="flex-grow min-h-screen flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 flex justify-between items-center w-full px-md h-16">
-          <h1 className="font-headline-md text-headline-md text-on-surface">My Rooms</h1>
+        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-2xl border-b border-[#222] flex justify-between items-center w-full px-md h-16">
+          <h1 className="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">My Rooms</h1>
           <div className="flex items-center gap-md">
             <button onClick={() => setShowJoin(true)}
-              className="border border-outline-variant/40 text-on-surface-variant px-md py-xs rounded-lg font-label-sm text-label-sm hover:bg-surface-variant/30 transition-all flex items-center gap-xs">
+              className="border border-[#333] text-on-surface-variant px-md py-xs rounded-lg font-label-sm text-label-sm hover:bg-white/5 hover:text-white transition-all flex items-center gap-xs">
               <span className="material-symbols-outlined text-[16px]">login</span>
               Join room
             </button>
             <button onClick={() => setShowCreate(true)}
-              className="bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white px-md py-xs rounded-lg font-label-sm text-label-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-xs shadow-lg">
+              className="bg-on-surface text-background px-md py-xs rounded-lg font-label-sm text-label-sm font-semibold hover:scale-105 active:scale-95 transition-all flex items-center gap-xs shadow-[0_0_15px_rgba(255,255,255,0.1)]">
               <span className="material-symbols-outlined text-[16px]">add</span>
               New room
             </button>
@@ -318,9 +318,9 @@ const Dashboard = () => {
               ))}
             </div>
           ) : rooms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[60vh] gap-lg text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
-                <span className="material-symbols-outlined text-primary text-[40px]">terminal</span>
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-lg text-center animate-in fade-in duration-700">
+              <div className="w-16 h-16 bg-gradient-to-tr from-[#333] to-[#111] rounded-2xl flex items-center justify-center border border-[#444] shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                <span className="material-symbols-outlined text-white text-[32px]">terminal</span>
               </div>
               <div>
                 <h2 className="font-headline-md text-headline-md text-on-surface mb-xs">No rooms yet</h2>
@@ -328,11 +328,11 @@ const Dashboard = () => {
               </div>
               <div className="flex gap-md">
                 <button onClick={() => setShowCreate(true)}
-                  className="bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white px-lg py-sm rounded-lg font-body-md text-body-md font-bold hover:brightness-110 active:scale-95 transition-all">
+                  className="bg-on-surface text-background px-lg py-sm rounded-full font-body-md text-body-md font-semibold hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                   Create room
                 </button>
                 <button onClick={() => setShowJoin(true)}
-                  className="border border-outline-variant/40 text-on-surface-variant px-lg py-sm rounded-lg font-body-md text-body-md hover:bg-surface-variant/30 transition-all">
+                  className="border border-[#333] text-on-surface px-lg py-sm rounded-full font-body-md text-body-md hover:bg-white/5 transition-all">
                   Join room
                 </button>
               </div>
