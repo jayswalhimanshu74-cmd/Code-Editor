@@ -17,20 +17,47 @@
 
 @layer components {
   .glass-card {
-    @apply bg-[rgba(22,22,24,0.8)] backdrop-blur-[16px] border border-[rgba(255,255,255,0.1)];
+    @apply bg-black/60 backdrop-blur-xl border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)];
+  }
+  
+  .glass-panel {
+    @apply bg-[#0a0a0a]/80 backdrop-blur-2xl border border-[#333] shadow-xl;
   }
 }
 
 @layer utilities {
-  .code-token-keyword { color: #c0c1ff; }
-  .code-token-string { color: #ffb783; }
-  .code-token-function { color: #adc6ff; }
-  .code-token-comment { color: #908fa0; }
+  .code-token-keyword { color: #ff7b72; }
+  .code-token-string { color: #a5d6ff; }
+  .code-token-function { color: #d2a8ff; }
+  .code-token-comment { color: #8b949e; }
+  
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60;
+  }
+  .text-gradient-primary {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#0070f3] to-[#00f0ff];
+  }
 }
 
 body {
   @apply overflow-x-hidden;
-  background-color: #0a0a0f;
-  color: #e8e8f0;
+  background-color: #000000;
+  color: #fafafa;
   font-family: 'Inter', sans-serif;
+}
+
+/* Premium Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }

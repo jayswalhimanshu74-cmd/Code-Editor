@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 
 const Landing = () => {
   return (
-    <div className="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen">
+    <div className="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen selection:bg-primary/30">
       {/* Top Navigation Bar */}
       <nav className="fixed top-0 z-50 w-full bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 flex justify-between items-center px-md h-16 max-w-full">
         <div className="flex items-center gap-xl">
-          <span className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">CodeEditor</span>
+          <span className="font-headline-md text-headline-md font-extrabold tracking-tighter text-on-surface flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-primary to-neon-cyan shadow-[0_0_15px_rgba(0,112,243,0.5)]"></div>
+            CodeEditor
+          </span>
           <div className="hidden md:flex gap-md">
             <Link className="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" to="/">Home</Link>
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#features">Features</a>
@@ -28,7 +31,7 @@ const Landing = () => {
             </button>
           </div>
           <Link to="/login" className="px-md py-sm font-label-sm text-label-sm text-on-surface hover:bg-white/5 transition-all rounded-lg">Login</Link>
-          <Link to="/register" className="px-md py-sm font-label-sm text-label-sm bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white rounded-lg shadow-lg active:scale-95 transition-transform">Sign Up</Link>
+          <Link to="/register" className="px-md py-sm font-label-sm text-label-sm bg-primary text-white rounded-lg shadow-[0_0_15px_rgba(0,112,243,0.3)] hover:shadow-[0_0_25px_rgba(0,112,243,0.5)] active:scale-95 transition-all">Sign Up</Link>
         </div>
       </nav>
 
@@ -36,34 +39,34 @@ const Landing = () => {
         {/* Hero Section */}
         <section className="relative min-h-[921px] flex flex-col items-center justify-center px-md py-xl text-center overflow-hidden">
           {/* Background Glows */}
-          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 blur-[120px] -z-10 rounded-full"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary/10 blur-[100px] -z-10 rounded-full"></div>
-          <h1 className="font-headline-lg text-headline-lg md:text-[64px] md:leading-[1.1] font-extrabold max-w-4xl mb-md">
-            Code with Anyone, <span className="text-primary">Anywhere.</span>
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/20 blur-[150px] -z-10 rounded-full mix-blend-screen"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary/20 blur-[150px] -z-10 rounded-full mix-blend-screen"></div>
+          <h1 className="font-headline-lg text-headline-lg md:text-[72px] md:leading-[1.05] font-extrabold tracking-tighter max-w-4xl mb-md text-gradient">
+            Code with Anyone,<br/> <span className="text-gradient-primary">Anywhere.</span>
           </h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mb-xl">
             The next-generation collaborative IDE built for speed. Experience millisecond sync latency, AI-powered pair programming, and one-click cloud deployments.
           </p>
           <div className="flex flex-col sm:flex-row gap-md mb-20">
-            <Link to="/register" className="px-lg py-md bg-gradient-to-b from-[#6366f1] to-[#4f46e5] text-white font-headline-md text-headline-md rounded-xl shadow-xl flex items-center gap-sm">
+            <Link to="/register" className="px-lg py-md bg-on-surface text-background font-headline-md text-headline-md rounded-full shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all flex items-center gap-sm">
               Get Started Free <span className="material-symbols-outlined">arrow_forward</span>
             </Link>
-            <button className="px-lg py-md glass-card text-on-surface font-headline-md text-headline-md rounded-xl flex items-center gap-sm">
+            <button className="px-lg py-md glass-card text-on-surface font-headline-md text-headline-md rounded-full hover:bg-white/5 active:scale-95 transition-all flex items-center gap-sm">
               View Demo
             </button>
           </div>
 
           {/* Glassmorphic Editor Preview */}
-          <div className="w-full max-w-5xl glass-card rounded-xl overflow-hidden shadow-2xl relative">
-            <div className="bg-surface-container-highest/50 px-md py-sm flex items-center gap-sm border-b border-outline-variant/30">
+          <div className="w-full max-w-5xl glass-card rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,112,243,0.15)] relative border border-white/10">
+            <div className="bg-surface-container-highest/30 px-md py-sm flex items-center gap-sm border-b border-white/5">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-error/40"></div>
                 <div className="w-3 h-3 rounded-full bg-tertiary/40"></div>
                 <div className="w-3 h-3 rounded-full bg-secondary/40"></div>
               </div>
               <div className="ml-4 flex gap-4">
-                <div className="px-sm py-1 bg-surface-container-low border-b-2 border-primary text-primary text-xs font-label-sm flex items-center gap-xs">
-                  App.tsx <span className="material-symbols-outlined text-[12px]">close</span>
+                <div className="px-sm py-1 bg-surface-container-lowest/50 border border-white/10 rounded-md text-primary text-xs font-label-sm flex items-center gap-xs shadow-inner">
+                  App.tsx <span className="material-symbols-outlined text-[12px] opacity-70">close</span>
                 </div>
                 <div className="px-sm py-1 text-on-surface-variant text-xs font-label-sm flex items-center gap-xs">
                   server.py
@@ -71,22 +74,23 @@ const Landing = () => {
               </div>
             </div>
             <div className="flex">
-              <div className="w-12 bg-black/20 border-r border-outline-variant/10 py-md font-code-md text-xs text-outline/50 select-none">
+              <div className="w-12 bg-black/40 border-r border-white/5 py-md font-code-md text-xs text-outline/40 select-none text-right pr-3">
                 1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8<br/>9<br/>10
               </div>
               <div className="p-md text-left font-code-md text-code-md w-full relative">
                 <div className="absolute top-0 left-0 w-full h-8 bg-white/5 pointer-events-none"></div>
                 <pre><code><span className="code-token-keyword">import</span> React <span className="code-token-keyword">from</span> <span className="code-token-string">'react'</span>;
-{"\n"}
-<span className="code-token-keyword">const</span> <span className="code-token-function">CodeEditor</span> = () =&gt; {"{"}
-  <span className="code-token-keyword">const</span> [code, setCode] = React.<span className="code-token-function">useState</span>(<span className="code-token-string">""</span>);
-{"\n"}
-  <span className="code-token-keyword">return</span> (
-    &lt;<span className="code-token-function">div</span> className=<span className="code-token-string">"editor-container"</span>&gt;
-      &lt;<span className="code-token-function">MonacoEditor</span> theme=<span className="code-token-string">"vs-dark"</span> /&gt;
-    &lt;/<span className="code-token-function">div</span>&gt;
-  );
-{"}"};</code></pre>
+                {"\n"}
+                <span className="code-token-keyword">const</span> <span className="code-token-function">CodeEditor</span> = () =&gt; {"{"}
+                  <span className="code-token-keyword">const</span> [code, setCode] = React.<span className="code-token-function">useState</span>(<span className="code-token-string">""</span>);
+                {"\n"}
+                  <span className="code-token-keyword">return</span> (
+                    &lt;<span className="code-token-function">div</span> className=<span className="code-token-string">"editor-container"</span>&gt;
+                      &lt;<span className="code-token-function">MonacoEditor</span> theme=<span className="code-token-string">"vs-dark"</span> /&gt;
+                    &lt;/<span className="code-token-function">div</span>&gt;
+                  );
+                {"}"};</code>
+                </pre>
                 {/* Collaborative Cursors */}
                 <div className="absolute top-32 left-48 flex flex-col gap-xs">
                   <div className="w-0.5 h-5 bg-primary relative">
@@ -111,7 +115,7 @@ const Landing = () => {
                 <span className="material-symbols-outlined text-[16px]">bolt</span>
                 REAL-TIME SYNC
               </div>
-              <h2 className="font-headline-lg text-headline-lg">Zero Latency. Zero Conflicts.</h2>
+              <h2 className="font-headline-lg text-headline-lg tracking-tight text-gradient">Zero Latency. Zero Conflicts.</h2>
               <p className="font-body-lg text-body-lg text-on-surface-variant">
                 CodeEditor uses proprietary WebSocket optimization to sync keystrokes across the globe in under 50ms. Our Conflict-Free Replicated Data Types (CRDT) ensure that even with patchy connections, your team stays perfectly in sync.
               </p>
@@ -138,7 +142,7 @@ const Landing = () => {
 
         {/* Feature Grid */}
         <section className="py-xl px-md max-w-7xl mx-auto">
-          <h3 className="font-headline-lg text-headline-lg text-center mb-xl">Everything you need to <span className="text-secondary">ship faster</span>.</h3>
+          <h3 className="font-headline-lg text-headline-lg tracking-tight text-center mb-xl text-gradient">Everything you need to <span className="text-gradient-primary">ship faster</span>.</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-md">
             <div className="glass-card p-md rounded-xl hover:bg-surface-variant/40 transition-all duration-200 group">
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-md group-hover:scale-110 transition-transform">
@@ -198,7 +202,7 @@ const Landing = () => {
               </div>
             </div>
             <div className="flex-1 order-1 lg:order-2 space-y-md">
-              <h2 className="font-headline-lg text-headline-lg">Built for Teams that Move Fast.</h2>
+              <h2 className="font-headline-lg text-headline-lg tracking-tight text-gradient">Built for Teams that Move Fast.</h2>
               <p className="font-body-lg text-body-lg text-on-surface-variant">
                 Our editor isn't just a place to type code; it's a shared workspace where distance is eliminated. Jump into your teammate's file with a click, pair program with voice and video integration, and see exactly where everyone is focusing.
               </p>
@@ -218,10 +222,10 @@ const Landing = () => {
 
         {/* CTA Section */}
         <section className="py-xl px-md text-center max-w-4xl mx-auto" id="pricing">
-          <h2 className="font-headline-lg text-headline-lg mb-md">Ready to upgrade your workflow?</h2>
+          <h2 className="font-headline-lg text-headline-lg tracking-tight mb-md text-gradient">Ready to upgrade your workflow?</h2>
           <p className="font-body-lg text-body-lg text-on-surface-variant mb-xl">Join 50,000+ developers building the future on CodeEditor.</p>
           <div className="flex justify-center gap-md">
-            <Link to="/register" className="px-xl py-md bg-primary text-on-primary font-headline-md text-headline-md rounded-xl hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95">Start Coding Now</Link>
+            <Link to="/register" className="px-xl py-md bg-on-surface text-background font-headline-md text-headline-md rounded-full hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all">Start Coding Now</Link>
           </div>
         </section>
       </main>
