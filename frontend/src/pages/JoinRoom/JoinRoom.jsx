@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useRoomStore from '../../store/roomStore';
 import useAuthStore from '../../store/authStore';
-import Sidebar from '../../components/Sidebar';
+
 
 const JoinRoom = () => {
     const navigate = useNavigate();
@@ -29,11 +29,7 @@ const JoinRoom = () => {
     };
 
     return (
-        <div style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
-            {/* Sidebar */}
-            <Sidebar />
-
-            {/* Main */}
+        <div className="flex-1 w-full h-full flex flex-col text-on-surface">
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
 
                 {/* Glow */}

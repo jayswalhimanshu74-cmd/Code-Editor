@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
 import { userService } from '../../api/userService';
-import Sidebar from '../../components/Sidebar';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -36,9 +35,7 @@ const Profile = () => {
         : '—';
 
     const s = {
-        page:    { height: '100vh', display: 'flex', overflow: 'hidden' },
         main:    { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-        header:  { height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' },
         scroll:  { flex: 1, overflowY: 'auto', padding: 28 },
         card:    { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 24, marginBottom: 16 },
         label:   { fontSize: 10, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.12em', display: 'block', marginBottom: 6 },
@@ -53,28 +50,7 @@ const Profile = () => {
     };
 
     return (
-        <div style={s.page}>
-
-            {/* Sidebar */}
-            <Sidebar />
-
-            {/* Main */}
-            <div style={s.main}>
-
-                {/* Header */}
-                <header style={s.header}>
-                    <div style={{ fontSize: 17, fontWeight: 700 }}>Profile</div>
-                    <Link to="/settings" style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '7px 14px', borderRadius: 9,
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 12,
-                    }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
-                        Edit Profile
-                    </Link>
-                </header>
+        <div className="flex-1 w-full h-full text-on-surface">
 
                 <div style={s.scroll}>
                     {loading ? (
@@ -208,7 +184,6 @@ const Profile = () => {
                         </div>
                     )}
                 </div>
-            </div>
         </div>
     );
 };
