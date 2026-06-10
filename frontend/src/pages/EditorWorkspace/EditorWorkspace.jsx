@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import Editor, { DiffEditor } from '@monaco-editor/react';
 import { snapshotService } from '../../api/snapshotService';
 import * as Y from 'yjs';
 import { MonacoBinding } from 'y-monaco';
@@ -12,6 +12,9 @@ import api from '../../api/axios';
 import { EXTENSIONS, FILE_ICONS, getFileIcon, languageColor } from '../../utils/fileUtils';
 import FileTree from './components/FileTree';
 import TerminalPanel from './components/TerminalPanel';
+import PreviewPanel from './components/PreviewPanel';
+import GitPanel from './components/GitPanel';
+import MetricsPanel from './components/MetricsPanel';
 
 import { wsService } from '../../api/websocketService';
 import { fileService } from '../../api/fileService';
@@ -640,8 +643,15 @@ const EditorWorkspace = () => {
   // UI state
   const [rightTab, setRightTab] = useState('ai');
   const [showFileTree, setShowFileTree] = useState(true);
+  
+  // --- Diff State ---
+  const [diffOriginalContent, setDiffOriginalContent] = useState('');
+  const [isDiffLoading, setIsDiffLoading] = useState(false);
+
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [activeExecId, setActiveExecId] = useState(null);
+  const activeExecIdRef = useRef(null);
   const [connectedUsers, setConnectedUsers] = useState(user ? [user] : []);
   const [copied, setCopied] = useState(false);
   const [wsStatus, setWsStatus] = useState('connecting');
@@ -832,6 +842,32 @@ const EditorWorkspace = () => {
   }, [roomId]);
 
   // =========================
+  // Stream Execution Output
+  // =========================
+  useEffect(() => {
+    let unsubscribe = null;
+    
+    if (wsStatus === "connected") {
+        unsubscribe = wsService.subscribe(`/topic/room/${roomId}/execution`, (msg) => {
+            // Ignore messages from other executions to prevent interleaving streams!
+            if (msg.execId && msg.execId !== activeExecIdRef.current) {
+                return;
+            }
+
+            if (msg.type === "stdout" || msg.type === "stderr" || msg.type === "system" || msg.type === "error") {
+                setOutput(prev => prev + msg.data);
+                setRightTab('output');
+                setIsRunning(false); 
+            }
+        });
+    }
+
+    return () => {
+        if (unsubscribe) unsubscribe();
+    };
+  }, [roomId, wsStatus]);
+
+  // =========================
   // Yjs Sync per active file
   // =========================
   useEffect(() => {
@@ -842,6 +878,9 @@ const EditorWorkspace = () => {
     const fileId = activeFile.id; // capture for cleanup
 
     const setupYjs = async () => {
+      // Do NOT bind Yjs if this is a diff tab
+      if (activeFile?.type === 'diff') return;
+
       try {
         console.log('[Yjs] Connecting to file:', fileId);
         ydoc = await yjsService.connect(roomId, fileId);
@@ -901,8 +940,7 @@ const EditorWorkspace = () => {
     };
   }, [activeFile?.id, wsStatus, roomId, user, editorReady]);
 
-
-
+  
   // =========================
   // Presence
   // =========================
@@ -1061,6 +1099,30 @@ const EditorWorkspace = () => {
     codeRef.current = file.content || "";
   };
 
+  const handleFileDiff = async (file) => {
+    const targetFile = files.find(f => f.name === file);
+    if (!targetFile) return;
+
+    const diffTabId = targetFile.id + '-diff';
+    const diffTab = { ...targetFile, id: diffTabId, type: 'diff', originalId: targetFile.id };
+
+    if (!openFiles.find(f => f.id === diffTabId)) {
+      setOpenFiles(prev => [...prev, diffTab]);
+    }
+    setActiveFile(diffTab);
+    
+    setIsDiffLoading(true);
+    try {
+      const response = await api.get(`/git/${roomId}/file/head?path=${targetFile.name}`);
+      setDiffOriginalContent(response.data);
+    } catch (err) {
+      console.error('Failed to load original content', err);
+      setDiffOriginalContent('');
+    } finally {
+      setIsDiffLoading(false);
+    }
+  };
+
   const handleFileCreate = async (rawFilename, isFolder = false, parentId = null) => {
     let filename = rawFilename.trim();
     if (!isFolder) {
@@ -1139,7 +1201,7 @@ const EditorWorkspace = () => {
   const handleRunWithCode = async (currentCode) => {
     if (isRunning) return;
     setIsRunning(true);
-    setOutput('');
+    setOutput(''); // Clear output for the new stream
     setRightTab('output');
 
     try {
@@ -1149,12 +1211,14 @@ const EditorWorkspace = () => {
         fileLanguage,
         stdin
       );
-      setOutput(data.stdout || data.stderr || 'No output');
+      // Store the active execId so our WebSocket subscription knows what to listen for
+      setActiveExecId(data.execId);
+      activeExecIdRef.current = data.execId;
     } catch (err) {
-      setOutput('Failed to run: ' + (err.response?.data?.message || err.message));
-    } finally {
+      setOutput('Failed to trigger execution: ' + (err.response?.data?.message || err.message));
       setIsRunning(false);
     }
+    // Note: setIsRunning(false) is handled when the stream starts or via timeout
   };
 
   // ✅ Single handleRun — always reads from editor directly
@@ -1257,7 +1321,7 @@ const EditorWorkspace = () => {
           )}
 
           <div className="flex items-center" style={{ gap: -4 }}>
-            {connectedUsers.slice(0, 5).map((u) => (
+            {connectedUsers.slice(0,5).map((u) => (
               <UserAvatar
                 key={u.id}
                 user={u}
@@ -1303,15 +1367,20 @@ const EditorWorkspace = () => {
               style={{ width: fileTreeWidth }}
               className="flex-shrink-0 h-full bg-surface-container-lowest/70 border-r border-outline-variant/20 flex flex-col overflow-hidden"
             >
-              <FileTree
-                files={files}
-                activeFileId={activeFile?.id}
-                onFileSelect={handleFileSelect}
-                onFileCreate={handleFileCreate}
-                onFileDelete={handleFileDelete}
-                onFileRename={handleFileRename}
-                language={language}
-              />
+              <div className="flex-1 overflow-hidden">
+                <FileTree
+                  files={files}
+                  activeFileId={activeFile?.type === 'diff' ? activeFile.originalId : activeFile?.id}
+                  onFileSelect={handleFileSelect}
+                  onFileCreate={handleFileCreate}
+                  onFileDelete={handleFileDelete}
+                  onFileRename={handleFileRename}
+                  language={language}
+                />
+              </div>
+              <div className="h-[40%] flex-shrink-0 border-t border-outline-variant/20">
+                <GitPanel roomId={roomId} onFileDiff={handleFileDiff} />
+              </div>
             </aside>
 
             {/* Left resize handle */}
@@ -1342,9 +1411,9 @@ const EditorWorkspace = () => {
                   <span className="absolute top-0 left-0 right-0 h-0.5 bg-primary" />
                 )}
                 <span className="material-symbols-outlined text-[11px] opacity-60">
-                  {getFileIcon(file.name).icon}
+                  {file.type === 'diff' ? 'difference' : getFileIcon(file.name).icon}
                 </span>
-                {file.name}
+                {file.name} {file.type === 'diff' && '(Diff)'}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1367,49 +1436,74 @@ const EditorWorkspace = () => {
           </div>
 
           {/* Monaco Editor */}
-          <div className="flex-1 overflow-hidden select-text">
-            <Editor
-              height="100%"
-              language={monacoLanguage}
-              value={code}
-              onChange={handleCodeChange}
-              theme="vs-dark"
-              onMount={(editor, monaco) => {
+          <div className="flex-1 overflow-hidden select-text relative">
+            {activeFile?.type === 'diff' ? (
+              <>
+                {isDiffLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50">
+                    <span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span>
+                  </div>
+                )}
+                <DiffEditor
+                  height="100%"
+                  language={monacoLanguage}
+                  original={diffOriginalContent}
+                  modified={code}
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    renderSideBySide: true,
+                    minimap: { enabled: false },
+                    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+                    fontSize: 13,
+                    scrollBeyondLastLine: false,
+                    padding: { top: 16, bottom: 16 },
+                  }}
+                />
+              </>
+            ) : (
+              <Editor
+                height="100%"
+                language={monacoLanguage}
+                value={code}
+                onChange={handleCodeChange}
+                theme="vs-dark"
+                onMount={(editor, monaco) => {
 
-                editorRef.current = editor;
+                  editorRef.current = editor;
 
-                // ── Existing keybinding ──────────────────────────────────────────────
-                editor.addCommand(
-                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                  () => {
-                    if (handleRunRef.current) {
-                      handleRunRef.current();
+                  // ── Existing keybinding ──────────────────────────────────────────────
+                  editor.addCommand(
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                    () => {
+                      if (handleRunRef.current) {
+                        handleRunRef.current();
+                      }
                     }
-                  }
-                );
+                  );
 
-                editor.onDidChangeCursorPosition((e) => {
-                  setCursor({
-                    line: e.position.lineNumber,
-                    col: e.position.column,
+                  editor.onDidChangeCursorPosition((e) => {
+                    setCursor({
+                      line: e.position.lineNumber,
+                      col: e.position.column,
+                    });
                   });
-                });
-                
-                setEditorReady(true);
-              }}
-              options={{
-                fontSize: 13,
-                fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-                fontLigatures: true,
-                lineHeight: 1.7,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                padding: { top: 16, bottom: 16 },
-                lineNumbers: 'on',
-                renderLineHighlight: 'line',
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                smoothScrolling: true,
+                  
+                  setEditorReady(true);
+                }}
+                options={{
+                  fontSize: 13,
+                  fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+                  fontLigatures: true,
+                  lineHeight: 1.7,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  padding: { top: 16, bottom: 16 },
+                  lineNumbers: 'on',
+                  renderLineHighlight: 'line',
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on',
+                  smoothScrolling: true,
                 wordWrap: 'on',
                 tabSize: 2,
                 bracketPairColorization: { enabled: true },
@@ -1420,7 +1514,8 @@ const EditorWorkspace = () => {
                 formatOnType: false,
                 automaticLayout: true,
               }}
-            />
+              />
+            )}
           </div>
         </main>
 
@@ -1453,8 +1548,10 @@ const EditorWorkspace = () => {
             {[
               { id: 'ai', icon: 'smart_toy', label: 'AI' },
               { id: 'output', icon: 'data_object', label: 'Output' },
+              { id: 'preview', icon: 'web', label: 'Preview' },
               { id: 'terminal', icon: 'terminal', label: 'Terminal' },
               { id: 'chat', icon: 'forum', label: 'Chat' },
+              { id: 'metrics', icon: 'monitoring', label: 'Metrics' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1471,22 +1568,9 @@ const EditorWorkspace = () => {
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col">
             {rightTab === 'ai' && (
               <AIPanel code={code} language={language} />
-            )}
-            {rightTab === 'snapshots' && (
-                <SnapshotPanel
-                    snapshots={snapshots}
-                    loading={snapshotLoading}
-                    label={snapshotLabel}
-                    setLabel={setSnapshotLabel}
-                    showInput={showSnapshotInput}
-                    setShowInput={setShowSnapshotInput}
-                    onSave={handleSaveSnapshot}
-                    onRestore={handleRestoreSnapshot}
-                    onDelete={handleDeleteSnapshot}
-                />
             )}
             {rightTab === 'output' && (
               <OutputPanel
@@ -1500,6 +1584,9 @@ const EditorWorkspace = () => {
                 onRun={handleRun}
               />
             )}
+            {rightTab === 'preview' && (
+              <PreviewPanel roomId={roomId} />
+            )}
             {rightTab === 'chat' && (
               <ChatPanel
                 roomId={roomId}
@@ -1508,6 +1595,9 @@ const EditorWorkspace = () => {
             )}
             {rightTab === 'terminal' && (
               <TerminalPanel roomId={roomId} />
+            )}
+            {rightTab === 'metrics' && (
+              <MetricsPanel roomId={roomId} />  
             )}
           </div>
         </aside>

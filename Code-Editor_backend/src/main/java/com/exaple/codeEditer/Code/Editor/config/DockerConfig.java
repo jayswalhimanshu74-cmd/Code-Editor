@@ -9,7 +9,6 @@ import com.github.dockerjava.transport.DockerHttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Duration;
 
 @Configuration
 public class DockerConfig {
@@ -23,8 +22,6 @@ public class DockerConfig {
         DockerHttpClient httpClient = new ZerodepDockerHttpClient.Builder()
                 .dockerHost(config.getDockerHost())
                 .sslConfig(config.getSSLConfig())
-                .connectionTimeout(Duration.ofSeconds(30))
-                .responseTimeout(Duration.ofSeconds(45))
                 .build();
 
         return DockerClientImpl.getInstance(config, httpClient);

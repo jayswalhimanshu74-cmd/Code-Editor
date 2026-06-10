@@ -5,6 +5,7 @@ import com.exaple.codeEditer.Code.Editor.dto.room.CreateRoomRequest;
 import com.exaple.codeEditer.Code.Editor.dto.room.JoinRoomRequest;
 import com.exaple.codeEditer.Code.Editor.dto.room.RoomResponse;
 import com.exaple.codeEditer.Code.Editor.service.RoomService;
+import com.exaple.codeEditer.Code.Editor.service.DockerWorkspaceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,19 @@ import java.util.UUID;
 public class RoomController {
 
     private final RoomService roomService;
+    private final DockerWorkspaceService dockerWorkspaceService;
+
+    @GetMapping("/{roomId}/ports/{port}")
+    public ResponseEntity<Integer> getMappedPort(
+            @PathVariable String roomId,
+            @PathVariable int port,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Integer mappedPort = dockerWorkspaceService.getMappedHostPort(roomId, port);
+        if (mappedPort != null) {
+            return ResponseEntity.ok(mappedPort);
+        }
+        return ResponseEntity.notFound().build();
+    }
 
     @PostMapping
     public ResponseEntity<RoomResponse> createRoom(

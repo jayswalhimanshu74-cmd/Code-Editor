@@ -19,4 +19,5 @@ public class ExecuteResponse {
     private Integer exitCode;
     private String time;
     private String memory;
+    private String execId;
 }
