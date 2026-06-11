@@ -24,8 +24,11 @@ public class AdminController {
 
     private final com.exaple.codeEditer.Code.Editor.repository.UserRepository userRepository;
 
-    @org.springframework.beans.factory.annotation.Value("${admin.bootstrap.secret:changeme}")
+    @org.springframework.beans.factory.annotation.Value("${admin.bootstrap.secret}")
     private String bootstrapSecret;
+
+    @org.springframework.beans.factory.annotation.Value("${admin.bootstrap.enabled:false}")
+    private boolean bootstrapEnabled;
 
     @org.springframework.web.bind.annotation.PostMapping("/grant-role")
     @PreAuthorize("hasRole('ADMIN')")
@@ -47,6 +50,10 @@ public class AdminController {
     public ResponseEntity<String> bootstrapFirstAdmin(
             @org.springframework.web.bind.annotation.RequestParam String email,
             @org.springframework.web.bind.annotation.RequestParam String secret) {
+        
+        if (!bootstrapEnabled) {
+            return ResponseEntity.status(403).body("Bootstrap process is disabled");
+        }
         if (!bootstrapSecret.equals(secret)) {
             return ResponseEntity.status(403).body("Invalid secret");
         }

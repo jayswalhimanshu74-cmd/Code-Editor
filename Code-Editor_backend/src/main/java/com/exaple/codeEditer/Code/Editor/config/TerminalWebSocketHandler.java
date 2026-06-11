@@ -34,27 +34,30 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        java.security.Principal principal = session.getPrincipal();
+        if (principal == null) {
+            log.warn("Unauthenticated terminal connection attempt");
+            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthenticated"));
+            return;
+        }
+
         // Extract roomId from query parameter (e.g. /ws/terminal?roomId=uuid)
         String query = session.getUri().getQuery();
         String roomId = null;
-        String username = "Developer";
-        String email = "dev@cloudide.com";
+        String username = principal.getName();
+        String email = principal.getName();
         
         if (query != null) {
             String[] params = query.split("&");
             for (String param : params) {
                 if (param.startsWith("roomId=")) {
                     roomId = param.substring(7);
-                } else if (param.startsWith("username=")) {
-                    username = java.net.URLDecoder.decode(param.substring(9), StandardCharsets.UTF_8);
-                } else if (param.startsWith("email=")) {
-                    email = java.net.URLDecoder.decode(param.substring(6), StandardCharsets.UTF_8);
                 }
             }
         }
 
         if (roomId == null) {
-            session.close(CloseStatus.BAD_DATA);
+            session.close(CloseStatus.BAD_DATA.withReason("Missing roomId"));
             return;
         }
 

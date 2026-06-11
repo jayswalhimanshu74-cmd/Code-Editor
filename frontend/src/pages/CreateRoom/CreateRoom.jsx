@@ -12,7 +12,7 @@ const CreateRoom = () => {
       {/* TopNavBar Implementation */}
       <header className="bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 docked full-width top-0 z-50 flex justify-between items-center w-full px-md h-16 max-w-full fixed">
         <div className="flex items-center gap-lg">
-          <Link to="/" className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">CodeEditor</Link>
+          <Link to="/" className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Hence-Code</Link>
           <nav className="hidden md:flex gap-md">
             <Link className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" to="/">Home</Link>
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors" href="#">Features</a>
@@ -237,7 +237,7 @@ const CreateRoom = () => {
       <footer className="bg-surface-dim border-t border-outline-variant/20 full-width bottom-0 z-10 relative">
         <div className="flex flex-col md:flex-row justify-between items-center px-lg py-md w-full">
           <div className="mb-md md:mb-0">
-            <span className="font-headline-md text-headline-md text-primary font-bold">CodeEditor</span>
+            <span className="font-headline-md text-headline-md text-primary font-bold">Hence-Code</span>
           </div>
           <div className="flex gap-lg">
             <a className="font-body-md text-body-md text-outline hover:text-on-surface hover:underline transition-all" href="#">Terms</a>
@@ -245,7 +245,7 @@ const CreateRoom = () => {
             <a className="font-body-md text-body-md text-outline hover:text-on-surface hover:underline transition-all" href="#">Status</a>
             <a className="font-body-md text-body-md text-outline hover:text-on-surface hover:underline transition-all" href="#">Documentation</a>
           </div>
-          <p className="mt-md md:mt-0 font-body-md text-body-md text-outline">© 2024 CodeEditor Inc. All rights reserved.</p>
+          <p className="mt-md md:mt-0 font-body-md text-body-md text-outline">© 2024 Hence-Code Inc. All rights reserved.</p>
         </div>
       </footer>
     </div>

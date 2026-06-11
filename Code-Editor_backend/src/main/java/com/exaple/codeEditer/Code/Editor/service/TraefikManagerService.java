@@ -79,6 +79,13 @@ public class TraefikManagerService {
             portBindings.bind(ExposedPort.tcp(80), Ports.Binding.bindPort(8081)); // Expose preview on 8081
             portBindings.bind(ExposedPort.tcp(8080), Ports.Binding.bindPort(8082)); // Expose dashboard on 8082
 
+            try {
+                log.info("Pulling traefik:v2.10 image...");
+                dockerClient.pullImageCmd("traefik:v2.10").start().awaitCompletion();
+            } catch (Exception e) {
+                log.warn("Failed to pull traefik image. Proceeding anyway...", e);
+            }
+
             HostConfig hostConfig = HostConfig.newHostConfig()
                     .withNetworkMode(NETWORK_NAME)
                     .withPortBindings(portBindings)

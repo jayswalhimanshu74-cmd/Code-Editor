@@ -21,13 +21,17 @@ const Sidebar = () => {
         { to: '/activity',  icon: 'history_log',  label: 'Activity' }
     ];
 
+    if (user?.role === 'ROLE_ADMIN') {
+        navLinks.push({ to: '/admin-dashboard', icon: 'admin_panel_settings', label: 'Admin Dashboard' });
+    }
+
     return (
         <aside className="hidden md:flex md:flex-col w-[240px] flex-shrink-0 bg-[#000] border-r border-[#222] p-0 z-40 h-screen sticky top-0">
             <Link to="/dashboard" className="no-underline">
                 <div className="px-5 py-6 border-b border-[#222] flex items-center gap-2">
                     <div className="w-5 h-5 rounded-[4px] bg-gradient-to-tr from-[#0070f3] to-[#00f0ff] shadow-[0_0_10px_rgba(0,112,243,0.5)]"></div>
                     <div>
-                        <div className="text-[18px] font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">CodeEditor</div>
+                        <div className="text-[18px] font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">Hence-Code</div>
                         <div className="text-[11px] text-white/40 font-medium">{user?.email || 'Guest'}</div>
                     </div>
                 </div>
