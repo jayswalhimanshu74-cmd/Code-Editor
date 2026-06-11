@@ -10,7 +10,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
 
     @Id
@@ -43,4 +47,18 @@ public class User {
     @Column(name = "role", nullable = false, columnDefinition = "varchar(255) default 'ROLE_USER'")
     @Builder.Default
     private String role = "ROLE_USER";
-}
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false, columnDefinition = "varchar(255) default 'LOCAL'")
+    @Builder.Default
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(name = "provider_id")
+    private String providerId;
+
+    @Column(name = "github_access_token", length = 512)
+    private String githubAccessToken;
+
+    @Column(name = "github_username")
+    private String githubUsername;
+}

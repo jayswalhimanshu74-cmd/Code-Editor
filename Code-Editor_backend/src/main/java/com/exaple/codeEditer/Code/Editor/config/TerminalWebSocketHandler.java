@@ -12,7 +12,6 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
@@ -26,7 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
     private final DockerWorkspaceService dockerWorkspaceService;
-    private final DockerClient dockerClient;
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private DockerClient dockerClient;
 
     // Map WebSocket Session ID to the PipedOutputStream for STDIN
     private final Map<String, PipedOutputStream> sessionInputStreams = new ConcurrentHashMap<>();
@@ -61,7 +62,7 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
         try {
             // Ensure container is running
-            String containerId = dockerWorkspaceService.startWorkspace(roomId);
+            String containerId = dockerWorkspaceService.provisionContainer(roomId);
 
             // Configure Git identity in the container
             try {

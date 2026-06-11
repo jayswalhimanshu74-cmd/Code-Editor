@@ -11,7 +11,6 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.exaple.codeEditer.Code.Editor.entity.File;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
 import com.github.dockerjava.api.model.Frame;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,17 +32,20 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class DockerWorkspaceService {
 
-    private final DockerClient dockerClient;
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private DockerClient dockerClient;
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    
+
     // Map Room ID to Docker Container ID
     private final Map<String, String> activeWorkspaces = new ConcurrentHashMap<>();
 
     private static final String BASE_IMAGE = "cloud-ide-workspace:latest";
     private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
-    private static final String DOCKERFILE_PATH = System.getProperty("user.dir") + "/src/main/resources/workspace-image";
+    private static final String DOCKERFILE_PATH = System.getProperty("user.dir")
+            + "/src/main/resources/workspace-image";
 
     /**
      * Spins up an isolated Linux container for the workspace.
@@ -51,7 +53,7 @@ public class DockerWorkspaceService {
      * @param roomId The UUID of the room/workspace
      * @return The ID of the created Docker container
      */
-    public synchronized String startWorkspace(String roomId) {
+    public synchronized String provisionContainer(String roomId) {
         if (activeWorkspaces.containsKey(roomId)) {
             return activeWorkspaces.get(roomId);
         }
@@ -91,9 +93,8 @@ public class DockerWorkspaceService {
             // Pre-expose common development ports (3000, 5000, 5173, 8000, 8080)
             List<ExposedPort> exposedPorts = Arrays.asList(
                     ExposedPort.tcp(3000), ExposedPort.tcp(5000), ExposedPort.tcp(5173),
-                    ExposedPort.tcp(8000), ExposedPort.tcp(8080)
-            );
-            
+                    ExposedPort.tcp(8000), ExposedPort.tcp(8080));
+
             Ports portBindings = new Ports();
             for (ExposedPort port : exposedPorts) {
                 // Bind to 0 to dynamically allocate an available host port
@@ -112,8 +113,7 @@ public class DockerWorkspaceService {
                             .withCpuQuota(50000L) // 50% of a single core
                             .withCpuPeriod(100000L)
                             .withBinds(new Bind(hostPath, new Volume("/workspace")))
-                            .withPortBindings(portBindings)
-                    )
+                            .withPortBindings(portBindings))
                     .exec();
 
             String containerId = container.getId();
@@ -131,16 +131,51 @@ public class DockerWorkspaceService {
         }
     }
 
-    public void stopWorkspace(String roomId) {
-        String containerId = activeWorkspaces.remove(roomId);
+    public void stopAndRemoveContainer(String containerId, String roomId) {
         if (containerId != null) {
             try {
                 dockerClient.stopContainerCmd(containerId).withTimeout(5).exec();
                 dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+                activeWorkspaces.remove(roomId);
                 log.info("Stopped and removed workspace container {}", containerId);
             } catch (Exception e) {
                 log.warn("Error stopping workspace container {}: {}", containerId, e.getMessage());
             }
+        }
+    }
+
+    public boolean isContainerRunning(String containerId) {
+        if (containerId == null)
+            return false;
+        try {
+            com.github.dockerjava.api.command.InspectContainerResponse response = dockerClient
+                    .inspectContainerCmd(containerId).exec();
+            return Boolean.TRUE.equals(response.getState().getRunning());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void cleanupOrphanedContainers(List<String> validContainerIds) {
+        try {
+            List<com.github.dockerjava.api.model.Container> containers = dockerClient.listContainersCmd()
+                    .withShowAll(true)
+                    .exec();
+
+            for (com.github.dockerjava.api.model.Container c : containers) {
+                if (c.getNames().length > 0 && c.getNames()[0].startsWith("/workspace-")) {
+                    if (!validContainerIds.contains(c.getId())) {
+                        log.info("Removing orphaned workspace container {}", c.getId());
+                        try {
+                            dockerClient.removeContainerCmd(c.getId()).withForce(true).exec();
+                        } catch (Exception e) {
+                            log.warn("Failed to remove orphaned container {}", c.getId());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Skipping orphaned container cleanup: Docker is not reachable.");
         }
     }
 
@@ -149,7 +184,8 @@ public class DockerWorkspaceService {
     }
 
     /**
-     * Inspects the running container and returns the dynamically assigned host port for the requested container port.
+     * Inspects the running container and returns the dynamically assigned host port
+     * for the requested container port.
      */
     public Integer getMappedHostPort(String roomId, int containerPort) {
         String containerId = getContainerId(roomId);
@@ -174,7 +210,7 @@ public class DockerWorkspaceService {
     /**
      * Dumps all files for this room from Postgres to the host filesystem.
      */
-    private void syncWorkspaceToHost(String roomId) {
+    public void syncWorkspaceToHost(String roomId) {
         try {
             Path roomDir = Paths.get(HOST_WORKSPACES_DIR, roomId);
             if (!Files.exists(roomDir)) {
@@ -242,18 +278,21 @@ public class DockerWorkspaceService {
 
             // CPU calculation
             double cpuPercent = 0.0;
-            Long cpuDelta = stats.getCpuStats().getCpuUsage().getTotalUsage() - stats.getPreCpuStats().getCpuUsage().getTotalUsage();
+            Long cpuDelta = stats.getCpuStats().getCpuUsage().getTotalUsage()
+                    - stats.getPreCpuStats().getCpuUsage().getTotalUsage();
             Long systemCpuDelta = stats.getCpuStats().getSystemCpuUsage() - stats.getPreCpuStats().getSystemCpuUsage();
 
             if (systemCpuDelta > 0.0 && cpuDelta > 0.0) {
-                int onlineCpus = stats.getCpuStats().getOnlineCpus() != null ? stats.getCpuStats().getOnlineCpus().intValue() : 1;
+                int onlineCpus = stats.getCpuStats().getOnlineCpus() != null
+                        ? stats.getCpuStats().getOnlineCpus().intValue()
+                        : 1;
                 cpuPercent = ((double) cpuDelta / (double) systemCpuDelta) * onlineCpus * 100.0;
             }
 
             // Memory calculation
             Long usage = stats.getMemoryStats().getUsage();
             Long limit = stats.getMemoryStats().getLimit();
-            
+
             // Docker memory usage
             double memUsageMb = usage / (1024.0 * 1024.0);
             double memLimitMb = limit / (1024.0 * 1024.0);
@@ -261,8 +300,7 @@ public class DockerWorkspaceService {
             return new com.exaple.codeEditer.Code.Editor.dto.ContainerMetrics(
                     Math.round(cpuPercent * 100.0) / 100.0,
                     Math.round(memUsageMb * 100.0) / 100.0,
-                    Math.round(memLimitMb * 100.0) / 100.0
-            );
+                    Math.round(memLimitMb * 100.0) / 100.0);
 
         } catch (Exception e) {
             log.warn("Failed to fetch metrics for room {}: {}", roomId, e.getMessage());
@@ -280,14 +318,16 @@ public class DockerWorkspaceService {
         String safeCmd = "timeout -k 2s 14s bash -c '" + cmd.replace("'", "'\\''") + "'";
 
         try {
-            com.github.dockerjava.api.command.CreateContainerResponse container = dockerClient.createContainerCmd(BASE_IMAGE)
+            com.github.dockerjava.api.command.CreateContainerResponse container = dockerClient
+                    .createContainerCmd(BASE_IMAGE)
                     .withCmd("/bin/bash", "-c", safeCmd)
                     .withWorkingDir("/workspace")
                     .withHostConfig(com.github.dockerjava.api.model.HostConfig.newHostConfig()
                             .withMemory(256 * 1024 * 1024L) // 256MB limit for execution sandbox
                             .withCpuQuota(50000L) // 50% CPU
                             .withCpuPeriod(100000L)
-                            .withBinds(new com.github.dockerjava.api.model.Bind(hostPath, new com.github.dockerjava.api.model.Volume("/workspace")))
+                            .withBinds(new com.github.dockerjava.api.model.Bind(hostPath,
+                                    new com.github.dockerjava.api.model.Volume("/workspace")))
                             .withNetworkMode("none") // Disable networking for security
                             .withAutoRemove(true)) // Ensure container dies after execution
                     .exec();

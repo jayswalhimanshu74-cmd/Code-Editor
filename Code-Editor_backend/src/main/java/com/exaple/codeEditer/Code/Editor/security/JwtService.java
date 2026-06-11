@@ -38,6 +38,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId.toString())
+                .id(UUID.randomUUID().toString()) // Add JTI to ensure uniqueness
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 604800000L)) // 7 days
                 .signWith(getSigningKey())
