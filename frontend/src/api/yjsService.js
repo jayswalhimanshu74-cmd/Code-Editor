@@ -45,9 +45,8 @@ export const yjsService = {
 
     // 1. Load initial state
     try {
-      const token = localStorage.getItem('accessToken');
       const res = await fetch(restUrl, {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       });
       if (res.ok) {
         const base64 = await res.text();

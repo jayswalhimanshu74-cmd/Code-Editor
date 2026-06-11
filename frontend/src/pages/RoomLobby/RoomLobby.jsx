@@ -15,7 +15,7 @@ const RoomLobby = () => {
                 <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>terminal</span>
               </div>
               <div>
-                <h1 className="font-headline-md text-headline-md text-primary leading-tight">CodeEditor</h1>
+                <h1 className="font-headline-md text-headline-md text-primary leading-tight">Hence-Code</h1>
                 <p className="font-label-sm text-label-sm text-on-surface-variant opacity-60">v1.0.4</p>
               </div>
             </div>

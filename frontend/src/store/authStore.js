@@ -3,7 +3,7 @@ import api from '../api/axios';
 
 const useAuthStore = create((set) => ({
     user: null,
-    isAuthenticated: !!localStorage.getItem('accessToken'),
+    isAuthenticated: false, // Will be set true by fetchMe or login
     isLoading: false,
     error: null,
 
@@ -23,8 +23,6 @@ const useAuthStore = create((set) => ({
         set({ isLoading: true, error: null });
         try {
             const { data } = await api.post('/auth/login', { email, password });
-            localStorage.setItem('accessToken', data.accessToken);
-            localStorage.setItem('refreshToken', data.refreshToken);
 
             // ✅ Set user immediately from login response
             set({
@@ -53,13 +51,10 @@ const useAuthStore = create((set) => ({
 
     logout: async () => {
         try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            await api.post('/auth/logout', { refreshToken });
+            await api.post('/auth/logout');
         } catch (_) {
             // still clear state even if API fails
         } finally {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
             const { wsService } = await import('../api/websocketService');
             wsService.disconnect();
             set({ user: null, isAuthenticated: false, error: null });
@@ -70,9 +65,9 @@ const useAuthStore = create((set) => ({
         set({ isLoading: true });
         try {
             const { data } = await api.get('/auth/me');
-            set({ user: data, isLoading: false });
+            set({ user: data, isAuthenticated: true, isLoading: false });
         } catch (_) {
-            set({ isLoading: false });
+            set({ user: null, isAuthenticated: false, isLoading: false });
         }
     },
 

@@ -9,7 +9,7 @@ const Landing = () => {
         <div className="flex items-center gap-xl">
           <span className="font-headline-md text-headline-md font-extrabold tracking-tighter text-on-surface flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-primary to-neon-cyan shadow-[0_0_15px_rgba(0,112,243,0.5)]"></div>
-            CodeEditor
+            Hence-Code
           </span>
           <div className="hidden md:flex gap-md">
             <Link className="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" to="/">Home</Link>
@@ -81,7 +81,7 @@ const Landing = () => {
                 <div className="absolute top-0 left-0 w-full h-8 bg-white/5 pointer-events-none"></div>
                 <pre><code><span className="code-token-keyword">import</span> React <span className="code-token-keyword">from</span> <span className="code-token-string">'react'</span>;
                 {"\n"}
-                <span className="code-token-keyword">const</span> <span className="code-token-function">CodeEditor</span> = () =&gt; {"{"}
+                <span className="code-token-keyword">const</span> <span className="code-token-function">HenceCode</span> = () =&gt; {"{"}
                   <span className="code-token-keyword">const</span> [code, setCode] = React.<span className="code-token-function">useState</span>(<span className="code-token-string">""</span>);
                 {"\n"}
                   <span className="code-token-keyword">return</span> (
@@ -117,7 +117,7 @@ const Landing = () => {
               </div>
               <h2 className="font-headline-lg text-headline-lg tracking-tight text-gradient">Zero Latency. Zero Conflicts.</h2>
               <p className="font-body-lg text-body-lg text-on-surface-variant">
-                CodeEditor uses proprietary WebSocket optimization to sync keystrokes across the globe in under 50ms. Our Conflict-Free Replicated Data Types (CRDT) ensure that even with patchy connections, your team stays perfectly in sync.
+                Hence-Code uses proprietary WebSocket optimization to sync keystrokes across the globe in under 50ms. Our Conflict-Free Replicated Data Types (CRDT) ensure that even with patchy connections, your team stays perfectly in sync.
               </p>
               <ul className="space-y-sm">
                 <li className="flex items-center gap-sm font-body-md text-body-md text-on-surface">
@@ -134,7 +134,7 @@ const Landing = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
               <img alt="Network Infrastructure" className="rounded-xl w-full object-cover aspect-video grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-60 transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBpDHA3-OXpG6tEcSuTNs4byx2bOo85UtFlU98JW32_hQQkOlzAghW2mLJ6WNdZsQHYI6uDoX2yGQNYszkWkFleuSH7kuLp5mKoWXNitbF9ndSsW1884pzekE5J85eKsbMlU9nz4eeFl24i2iD9gdErcZ96NZbwfWgPAmybst7OgvZvIKkfusEPdrqZl5QFshOVFCMBD98wjI-5piDiOPAMBDc6IrzRT3i0vKe9cjt5oz5oHMHf2-aJwUSeb6nW5OBry3cID6Pgu9b" />
               <div className="mt-md font-code-md text-xs text-primary bg-black/40 p-sm rounded border border-primary/20">
-                WebSocket Connected: wss://sync.codeeditor.io/v1/session_94a2
+                WebSocket Connected: wss://sync.hencecode.io/v1/session_94a2
               </div>
             </div>
           </div>
@@ -223,7 +223,7 @@ const Landing = () => {
         {/* CTA Section */}
         <section className="py-xl px-md text-center max-w-4xl mx-auto" id="pricing">
           <h2 className="font-headline-lg text-headline-lg tracking-tight mb-md text-gradient">Ready to upgrade your workflow?</h2>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mb-xl">Join 50,000+ developers building the future on CodeEditor.</p>
+          <p className="font-body-lg text-body-lg text-on-surface-variant mb-xl">Join 50,000+ developers building the future on Hence-Code.</p>
           <div className="flex justify-center gap-md">
             <Link to="/register" className="px-xl py-md bg-on-surface text-background font-headline-md text-headline-md rounded-full hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all">Start Coding Now</Link>
           </div>
@@ -234,9 +234,9 @@ const Landing = () => {
       <footer className="bg-surface-dim border-t border-outline-variant/20">
         <div className="flex flex-col md:flex-row justify-between items-center px-lg py-md w-full gap-md">
           <div className="flex items-center gap-md">
-            <span className="font-headline-md text-headline-md text-primary font-bold">CodeEditor</span>
+            <span className="font-headline-md text-headline-md text-primary font-bold">Hence-Code</span>
             <span className="hidden md:block text-outline-variant">|</span>
-            <span className="text-outline font-body-md text-body-md">© 2024 CodeEditor Inc. All rights reserved.</span>
+            <span className="text-outline font-body-md text-body-md">© 2024 Hence-Code Inc. All rights reserved.</span>
           </div>
           <div className="flex gap-lg">
             <a className="font-body-md text-body-md text-outline hover:text-on-surface transition-colors hover:underline" href="#">Terms</a>

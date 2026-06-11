@@ -8,11 +8,6 @@ export const authService = {
 
     login: async (email, password) => {
         const response = await api.post('/auth/login', { email, password });
-        const { accessToken, refreshToken } = response.data;
-
-        // ✅ Store tokens
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
 
         // ✅ Connect WebSocket after login
         wsService.connect(
@@ -24,40 +19,25 @@ export const authService = {
     },
 
     logout: async () => {
-        const refreshToken = localStorage.getItem('refreshToken');
         try {
-            await api.post('/auth/logout', { refreshToken });
+            await api.post('/auth/logout');
         } catch (e) {
             console.warn('[Auth] Logout API failed:', e.message);
         } finally {
-            // ✅ Always clean up regardless of API success
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
             wsService.disconnect();
         }
     },
 
     refresh: async () => {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('No refresh token available');
-
-        const response = await api.post('/auth/refresh', { refreshToken });
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-
-        // ✅ Update stored tokens
-        localStorage.setItem('accessToken', accessToken);
-        if (newRefreshToken) {
-            localStorage.setItem('refreshToken', newRefreshToken);
-        }
-
-        return response;
+        return await api.post('/auth/refresh');
     },
 
     getMe: () =>
         api.get('/auth/me'),
 
-    isLoggedIn: () =>
-        !!localStorage.getItem('accessToken'),
+    // Not reliably usable synchronously with HttpOnly cookies,
+    // actual auth state depends on getting /auth/me successfully.
+    isLoggedIn: () => true,
 
     forgotPassword: (email) =>
         api.post('/auth/forgot-password', { email }),

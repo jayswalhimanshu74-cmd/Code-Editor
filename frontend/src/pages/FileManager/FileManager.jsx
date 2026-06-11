@@ -41,7 +41,7 @@ const FileManager = () => {
         {/* TopNavBar */}
         <header className="flex justify-between items-center w-full px-md h-14 z-50 bg-surface/80 backdrop-blur-md text-primary font-headline-md text-headline-md font-bold top-0 border-b border-outline-variant shadow-sm">
           <div className="flex items-center gap-md">
-            <span className="font-headline-md text-headline-md font-bold text-primary tracking-tight">CodeEditor</span>
+            <span className="font-headline-md text-headline-md font-bold text-primary tracking-tight">Hence-Code</span>
             <div className="hidden md:flex items-center bg-surface-variant/40 rounded-full px-sm py-1 border border-outline-variant/30 w-80">
               <span className="material-symbols-outlined text-on-surface-variant text-body-md mr-2">search</span>
               <input className="bg-transparent border-none focus:ring-0 text-body-md w-full placeholder:text-on-surface-variant/50 outline-none" placeholder="Search commands or files..." type="text" />

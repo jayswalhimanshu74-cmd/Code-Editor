@@ -35,7 +35,7 @@ const MobileGuard = ({ children }) => {
                         Better on Desktop
                     </h1>
                     <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6, maxWidth: 300 }}>
-                        CodeEditor is optimized for desktop browsers. For the best experience, open it on a larger screen.
+                        Hence-Code is optimized for desktop browsers. For the best experience, open it on a larger screen.
                     </p>
                 </div>
 

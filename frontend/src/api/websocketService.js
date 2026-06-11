@@ -18,20 +18,12 @@ class WebSocketService {
             return;
         }
 
-        // ✅ Guard — don't connect without a token
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-            console.warn("[WS] No access token found — aborting connect");
-            return;
-        }
+        // Removed synchronous token check since token is now an HttpOnly cookie.
 
         this.client = new Client({
             webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_URL}/ws`),
 
-            // ✅ Read token at connect time (not at class instantiation time)
-            connectHeaders: {
-                Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            },
+
 
             reconnectDelay: 5000,
             debug: (str) => console.log("[WS DEBUG]", str),
@@ -63,9 +55,7 @@ class WebSocketService {
 
             // ✅ Refresh token on reconnect attempts
             beforeConnect: () => {
-                this.client.connectHeaders = {
-                    Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-                };
+                // Cookies are automatically sent
             },
         });
 

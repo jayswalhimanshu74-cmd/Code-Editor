@@ -41,7 +41,7 @@ function App() {
           <Route path="/activity" element={<ActivityLog />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
         </Route>
 
         {/* Editor & Lobby (No Layout) */}

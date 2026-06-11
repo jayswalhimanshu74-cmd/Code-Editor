@@ -4,16 +4,11 @@ import { wsService } from './websocketService';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL + '/api',
+    withCredentials: true,
 });
 
-// ✅ Attach token to every request
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+// Remove request interceptor since cookies are automatically sent
+
 
 // ✅ Auto-refresh on 401
 let isRefreshing = false;
@@ -48,15 +43,11 @@ api.interceptors.response.use(
 
             try {
                 const response = await authService.refresh();
-                const newToken = response.data.accessToken;
-                processQueue(null, newToken);
-                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                processQueue(null, null);
                 return api(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
-                // Refresh failed — force logout
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
+                // Refresh failed — backend will clear cookies
                 wsService.disconnect();
                 window.location.href = '/login';
                 return Promise.reject(refreshError);

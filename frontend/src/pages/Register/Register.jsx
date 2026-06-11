@@ -33,8 +33,14 @@ const Register = () => {
       setLocalError('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
-      setLocalError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setLocalError('Password must be at least 8 characters');
+      return;
+    }
+    
+    const strongPasswordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$/;
+    if (!strongPasswordRegex.test(password)) {
+      setLocalError('Password must contain a number, uppercase, lowercase, and special character');
       return;
     }
     
@@ -46,11 +52,11 @@ const Register = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-body-md text-on-surface selection:bg-primary/30" 
-         style={{ backgroundColor: '#13131b', backgroundImage: 'radial-gradient(at 0% 0%, rgba(192, 193, 255, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(73, 75, 214, 0.1) 0px, transparent 50%)' }}>
+         style={{ backgroundColor: '#09090aff', backgroundImage: 'radial-gradient(at 0% 0%, rgba(192, 193, 255, 0.05) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(73, 75, 214, 0.1) 0px, transparent 50%)' }}>
       {/* Header / Brand Anchor */}
       <header className="flex justify-between items-center w-full px-md h-16 max-w-full bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/30 fixed top-0 z-50">
         <div className="flex items-center gap-sm">
-          <Link to="/" className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">CodeEditor</Link>
+          <Link to="/" className="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Hence-Code</Link>
         </div>
         <div className="flex items-center gap-md">
           <a className="text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Documentation</a>
@@ -205,13 +211,13 @@ const Register = () => {
 
       {/* Page Footer */}
       <footer className="flex flex-col md:flex-row justify-between items-center px-lg py-md w-full bg-surface-dim border-t border-outline-variant/20 mt-auto">
-        <span className="font-headline-md text-headline-md text-primary font-bold">CodeEditor</span>
+        <span className="font-headline-md text-headline-md text-primary font-bold">Hence-Code</span>
         <div className="flex gap-md mt-md md:mt-0">
           <a className="text-outline hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Terms</a>
           <a className="text-outline hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Privacy</a>
           <a className="text-outline hover:text-on-surface transition-colors font-body-md text-body-md" href="#">Documentation</a>
         </div>
-        <p className="font-body-md text-body-md text-outline mt-md md:mt-0">© 2024 CodeEditor Inc. All rights reserved.</p>
+        <p className="font-body-md text-body-md text-outline mt-md md:mt-0">© 2024 Hence-Code Inc. All rights reserved.</p>
       </footer>
     </div>
   );

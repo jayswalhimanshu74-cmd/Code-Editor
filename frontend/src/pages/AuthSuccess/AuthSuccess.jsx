@@ -3,30 +3,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 
 const AuthSuccess = () => {
-    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { loginWithToken } = useAuthStore();
+    const { fetchMe, isAuthenticated } = useAuthStore();
     const [status, setStatus] = useState('Authenticating...');
 
     useEffect(() => {
         const authenticate = async () => {
-            const token = searchParams.get('token');
-            if (token) {
-                const success = await loginWithToken(token);
-                if (success) {
-                    navigate('/dashboard', { replace: true });
-                } else {
-                    setStatus('Authentication failed. Redirecting to login...');
-                    setTimeout(() => navigate('/login', { replace: true }), 3000);
-                }
-            } else {
-                setStatus('Invalid token. Redirecting to login...');
-                setTimeout(() => navigate('/login', { replace: true }), 3000);
-            }
+            await fetchMe();
         };
 
         authenticate();
-    }, [searchParams, navigate, loginWithToken]);
+    }, [fetchMe]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/dashboard', { replace: true });
+        } else {
+            setTimeout(() => navigate('/login', { replace: true }), 3000);
+        }
+    }, [isAuthenticated, navigate]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-background">

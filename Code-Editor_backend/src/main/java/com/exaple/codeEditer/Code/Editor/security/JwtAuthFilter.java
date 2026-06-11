@@ -31,16 +31,27 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
 
-        final String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+        String jwt = null;
+        
+        // 1. Try to read from cookies
+        if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
         }
 
-        String jwt = authHeader.substring(7);
+        // 2. Fallback to Authorization header
+        if (jwt == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+            }
+        }
 
-        if (!jwtService.isTokenValid(jwt)) {
+        if (jwt == null || !jwtService.isTokenValid(jwt)) {
             filterChain.doFilter(request, response);
             return;
         }

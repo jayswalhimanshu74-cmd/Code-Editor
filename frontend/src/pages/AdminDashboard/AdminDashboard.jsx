@@ -131,18 +131,46 @@ const AdminDashboard = () => {
                 <AreaChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.5}/>
+                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0.05}/>
                     </linearGradient>
+                    <filter id="glowOps" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="5" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <XAxis dataKey="time" stroke="#ffffff50" fontSize={12} tickMargin={10} />
-                  <YAxis stroke="#ffffff50" fontSize={12} />
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: '#1e1e20', border: '1px solid #ffffff10', borderRadius: '8px' }}
-                    itemStyle={{ color: '#ec4899' }}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#ffffff50" 
+                    fontSize={10} 
+                    tickMargin={12} 
+                    minTickGap={30}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Area type="monotone" dataKey="redisOps" name="Ops/sec" stroke="#ec4899" fillOpacity={1} fill="url(#colorOps)" />
+                  <YAxis 
+                    stroke="#ffffff50" 
+                    fontSize={10} 
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(1)}k` : value}
+                  />
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: 'rgba(22, 22, 24, 0.8)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                    itemStyle={{ color: '#ec4899', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#ffffff80', marginBottom: '4px' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="redisOps" 
+                    name="Ops/sec" 
+                    stroke="#ec4899" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorOps)" 
+                    activeDot={{ r: 6, fill: '#ec4899', stroke: '#fff', strokeWidth: 2, filter: 'url(#glowOps)' }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -157,15 +185,41 @@ const AdminDashboard = () => {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <XAxis dataKey="time" stroke="#ffffff50" fontSize={12} tickMargin={10} />
-                  <YAxis stroke="#ffffff50" fontSize={12} allowDecimals={false} />
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: '#1e1e20', border: '1px solid #ffffff10', borderRadius: '8px' }}
-                    itemStyle={{ color: '#3b82f6' }}
-                    cursor={{fill: '#ffffff05'}}
+                  <defs>
+                    <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity={0.6}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#ffffff50" 
+                    fontSize={10} 
+                    tickMargin={12} 
+                    minTickGap={30}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Bar dataKey="activeWorkspaces" name="Running Workspaces" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <YAxis 
+                    stroke="#ffffff50" 
+                    fontSize={10} 
+                    allowDecimals={false} 
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: 'rgba(22, 22, 24, 0.8)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                    itemStyle={{ color: '#60a5fa', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#ffffff80', marginBottom: '4px' }}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  />
+                  <Bar 
+                    dataKey="activeWorkspaces" 
+                    name="Running Workspaces" 
+                    fill="url(#colorBar)" 
+                    radius={[6, 6, 0, 0]} 
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
