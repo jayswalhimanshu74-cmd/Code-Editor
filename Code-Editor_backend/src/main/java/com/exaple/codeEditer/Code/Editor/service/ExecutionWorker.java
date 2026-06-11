@@ -47,7 +47,11 @@ public class ExecutionWorker {
             try {
                 processExecution(roomIdStr, history);
             } finally {
-                redisTemplate.delete(lockKey);
+                try {
+                    redisTemplate.delete(lockKey);
+                } catch (Exception e) {
+                    // Ignore IllegalStateException during context shutdown
+                }
             }
         } else {
             // Room is locked by another execution, re-enqueue at the end
@@ -59,10 +63,8 @@ public class ExecutionWorker {
     public void recoverStuckExecutions() {
         // Find tasks stuck in RUNNING for more than 2 minutes (crashed nodes)
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(2);
-        List<ExecutionHistory> stuck = executionHistoryRepository.findAll().stream()
-            .filter(h -> h.getStatus() == ExecutionHistory.ExecutionStatus.RUNNING)
-            .filter(h -> h.getExecutedAt().isBefore(threshold))
-            .toList();
+        List<ExecutionHistory> stuck = executionHistoryRepository.findByStatusAndExecutedAtBefore(
+            ExecutionHistory.ExecutionStatus.RUNNING, threshold);
             
         for (ExecutionHistory h : stuck) {
             h.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
@@ -97,11 +99,45 @@ public class ExecutionWorker {
                 filename = "index.js";
                 runCommand = "node index.js";
                 break;
+            case "typescript":
+            case "ts":
+                filename = "index.ts";
+                runCommand = "npx ts-node index.ts";
+                break;
             case "python":
             case "python3":
             case "py":
                 filename = "main.py";
                 runCommand = "python3 main.py";
+                break;
+            case "cpp":
+            case "c++":
+                filename = "main.cpp";
+                runCommand = "g++ -o main main.cpp && ./main";
+                break;
+            case "c":
+                filename = "main.c";
+                runCommand = "gcc -o main main.c && ./main";
+                break;
+            case "go":
+            case "golang":
+                filename = "main.go";
+                runCommand = "go run main.go";
+                break;
+            case "rust":
+            case "rs":
+                filename = "main.rs";
+                runCommand = "rustc main.rs -o main && ./main";
+                break;
+            case "kotlin":
+            case "kt":
+                filename = "main.kt";
+                runCommand = "kotlinc main.kt -include-runtime -d main.jar && java -jar main.jar";
+                break;
+            case "csharp":
+            case "cs":
+                filename = "Program.cs";
+                runCommand = "dotnet-script Program.cs";
                 break;
             default:
                 filename = "main.txt";

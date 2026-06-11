@@ -19,6 +19,7 @@ import Settings from './pages/Settings/Settings';
 import MobileGuard from './components/MobileGaurd';
 import ActivityLog from './pages/ActivityLog/ActivityLog';
 import DashboardLayout from './layouts/DashboardLayout';
+import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
           <Route path="/activity" element={<ActivityLog />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         </Route>
 
         {/* Editor & Lobby (No Layout) */}

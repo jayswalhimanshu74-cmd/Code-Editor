@@ -19,14 +19,19 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
     public UserProfileResponse getProfile(String email) {
-        User user = findByEmail(email);
+        User user = getUserByEmail(email);
         return toResponse(user);
     }
 
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request) {
-        User user = findByEmail(email);
+        User user = getUserByEmail(email);
 
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             user.setUsername(request.getUsername());
@@ -43,7 +48,7 @@ public class UserService {
 
     @Transactional
     public void updatePassword(String email, UpdatePasswordRequest request) {
-        User user = findByEmail(email);
+        User user = getUserByEmail(email);
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Current password is incorrect");
@@ -52,11 +57,6 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         log.info("Password updated for: {}", email);
-    }
-
-    private User findByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
     private UserProfileResponse toResponse(User user) {

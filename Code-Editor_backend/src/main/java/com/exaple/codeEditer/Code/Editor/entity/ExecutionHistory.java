@@ -11,7 +11,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "execution_history")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ExecutionHistory {
 
     @Id
@@ -47,7 +51,8 @@ public class ExecutionHistory {
     private Integer durationMs;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
+    @Builder.Default
     private ExecutionStatus status = ExecutionStatus.QUEUED;
 
     public enum ExecutionStatus {
