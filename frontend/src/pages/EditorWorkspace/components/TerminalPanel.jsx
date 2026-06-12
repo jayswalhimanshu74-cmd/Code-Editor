@@ -18,10 +18,10 @@ const TerminalPanel = ({ roomId }) => {
         // Initialize XTerm
         const term = new Terminal({
             theme: {
-                background: '#1e1e2e',
+                background: '#000000',
                 foreground: '#cdd6f4',
-                cursor: '#f38ba8',
-                selection: '#585b70'
+                cursor: '#0070f3',
+                selection: 'rgba(255, 255, 255, 0.15)'
             },
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 12,
@@ -110,14 +110,14 @@ const TerminalPanel = ({ roomId }) => {
     }, [roomId]);
 
     return (
-        <div className="flex flex-col h-full bg-[#1e1e2e]">
-            <div className="flex items-center px-3 py-1.5 bg-[#181825] border-b border-[#313244] shrink-0 gap-2">
-                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`} />
-                <span className="text-[11px] text-[#bac2de] font-mono">
+        <div className="flex flex-col h-full bg-transparent">
+            <div className="flex items-center px-4 py-2 bg-black/40 backdrop-blur-md border-b border-white/10 shrink-0 gap-2">
+                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-red-400 shadow-[0_0_8px_#f87171]'}`} />
+                <span className="text-[11px] text-white/50 font-mono">
                     {connected ? 'workspace-active' : 'disconnected'}
                 </span>
             </div>
-            <div className="flex-1 overflow-hidden p-2">
+            <div className="flex-1 overflow-hidden p-2 bg-black">
                 <div className="w-full h-full relative" ref={terminalRef}>
                     {/* XTerm will inject canvas/div elements here */}
                 </div>

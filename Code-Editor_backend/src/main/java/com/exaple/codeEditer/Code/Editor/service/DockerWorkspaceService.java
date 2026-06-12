@@ -333,26 +333,34 @@ public class DockerWorkspaceService {
         String safeCmd = "timeout -k 2s 14s bash -c '" + cmd.replace("'", "'\\''") + "'";
 
         try {
+            // 1. Create container
             com.github.dockerjava.api.command.CreateContainerResponse container = dockerClient
                     .createContainerCmd(BASE_IMAGE)
                     .withCmd("/bin/bash", "-c", safeCmd)
                     .withWorkingDir("/workspace")
                     .withHostConfig(com.github.dockerjava.api.model.HostConfig.newHostConfig()
-                            .withMemory(256 * 1024 * 1024L) // 256MB limit for execution sandbox
+                            .withMemory(512 * 1024 * 1024L) // 512MB limit for execution sandbox (Java needs more RAM)
                             .withCpuQuota(50000L) // 50% CPU
                             .withCpuPeriod(100000L)
                             .withBinds(new com.github.dockerjava.api.model.Bind(hostPath,
                                     new com.github.dockerjava.api.model.Volume("/workspace")))
-                            .withNetworkMode("none") // Disable networking for security
-                            .withAutoRemove(true)) // Ensure container dies after execution
+                            .withNetworkMode("none")) // Disable networking for security
                     .exec();
 
+            // 2. Attach Wait callback BEFORE starting to avoid missing fast exits
+            com.github.dockerjava.api.command.WaitContainerResultCallback waitCb = new com.github.dockerjava.api.command.WaitContainerResultCallback();
+            dockerClient.waitContainerCmd(container.getId()).exec(waitCb);
+
+            // 3. Start container
             dockerClient.startContainerCmd(container.getId()).exec();
 
-            dockerClient.logContainerCmd(container.getId())
+            // 4. Attach Log callback AFTER starting, otherwise docker-java sees it's not running and closes instantly
+            com.github.dockerjava.api.async.ResultCallbackTemplate<com.github.dockerjava.api.async.ResultCallback<Frame>, Frame> logCallback = 
+                dockerClient.logContainerCmd(container.getId())
                     .withStdOut(true)
                     .withStdErr(true)
                     .withFollowStream(true)
+                    .withTailAll() // Ensure we get logs from the very beginning
                     .exec(new com.github.dockerjava.api.async.ResultCallbackTemplate<com.github.dockerjava.api.async.ResultCallback<Frame>, Frame>() {
                         @Override
                         public void onNext(Frame item) {
@@ -361,23 +369,49 @@ public class DockerWorkspaceService {
                             fullOutput.append(data);
                             sendExecutionMessage(roomId, execId, type, data);
                         }
-                    }).awaitCompletion(15, java.util.concurrent.TimeUnit.SECONDS);
+                    });
 
+            // 5. Await exit
             int exitCode = -1;
             try {
-                com.github.dockerjava.api.command.WaitContainerResultCallback waitCb = new com.github.dockerjava.api.command.WaitContainerResultCallback();
-                dockerClient.waitContainerCmd(container.getId()).exec(waitCb);
-                exitCode = waitCb.awaitStatusCode(3, java.util.concurrent.TimeUnit.SECONDS);
+                // Await container exit instead of log stream
+                exitCode = waitCb.awaitStatusCode(15, java.util.concurrent.TimeUnit.SECONDS);
+                
+                // Allow the log stream to finish flushing after container stops
+                try { logCallback.awaitCompletion(2, java.util.concurrent.TimeUnit.SECONDS); } catch(Exception ignored) {}
+
+                // GUARANTEE: Fetch all logs synchronously after exit to catch any dropped frames
+                StringBuilder finalLogs = new StringBuilder();
+                try {
+                    dockerClient.logContainerCmd(container.getId())
+                        .withStdOut(true)
+                        .withStdErr(true)
+                        .withTailAll()
+                        .withFollowStream(true)
+                        .exec(new com.github.dockerjava.api.async.ResultCallbackTemplate<com.github.dockerjava.api.async.ResultCallback<Frame>, Frame>() {
+                            @Override
+                            public void onNext(Frame item) {
+                                finalLogs.append(new String(item.getPayload(), java.nio.charset.StandardCharsets.UTF_8));
+                            }
+                        }).awaitCompletion(3, java.util.concurrent.TimeUnit.SECONDS);
+                    
+                    if (finalLogs.length() > fullOutput.length()) {
+                        String missing = finalLogs.substring(fullOutput.length());
+                        fullOutput.append(missing);
+                        sendExecutionMessage(roomId, execId, "stdout", missing);
+                    }
+                } catch (Exception ignored) {}
+
             } catch (Exception e) {
-                // If autoRemove=true races with waitContainerCmd
+                // Timeout or error during wait
+            } finally {
+                // Cleanup stream and container
+                try { logCallback.close(); } catch(Exception ignored) {}
+                try { dockerClient.removeContainerCmd(container.getId()).withForce(true).exec(); } catch(Exception ignored) {}
             }
 
             sendExecutionMessage(roomId, execId, "system", "\n[Process Exited]");
             return exitCode;
-        } catch (InterruptedException e) {
-            sendExecutionMessage(roomId, execId, "error", "\n[Execution Timeout: Process forcefully terminated]");
-            Thread.currentThread().interrupt();
-            return -1;
         } catch (Exception e) {
             sendExecutionMessage(roomId, execId, "error", "\n[Execution Error: " + e.getMessage() + "]");
             return -1;
