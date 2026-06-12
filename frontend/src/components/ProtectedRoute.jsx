@@ -3,14 +3,14 @@ import { Navigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, user, fetchMe } = useAuthStore();
+    const { isAuthenticated, isCheckingAuth, user, fetchMe } = useAuthStore();
 
     // ✅ If authenticated but user object missing — fetch it
     useEffect(() => {
         if (isAuthenticated && !user) {
             fetchMe();
         }
-    }, [isAuthenticated, user]);
+    }, [isAuthenticated, user, fetchMe]);
 
     // ✅ Also reconnect WebSocket on page refresh
     useEffect(() => {
@@ -22,6 +22,14 @@ const ProtectedRoute = ({ children }) => {
             });
         }
     }, [isAuthenticated]);
+
+    if (isCheckingAuth && !isAuthenticated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-surface-container-lowest">
+                <span className="material-symbols-outlined animate-spin text-primary text-[40px]">progress_activity</span>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;

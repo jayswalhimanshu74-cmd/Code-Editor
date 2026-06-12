@@ -290,8 +290,8 @@ const AIPanel = ({ code, language }) => {
               )}
               <div
                 className={`max-w-[88%] rounded-xl px-3 py-2 text-[11px] leading-relaxed ${msg.role === 'user'
-                    ? 'bg-primary/20 text-on-surface rounded-br-sm'
-                    : 'bg-surface-variant/30 text-on-surface rounded-bl-sm'
+                  ? 'bg-primary/20 text-on-surface rounded-br-sm'
+                  : 'bg-surface-variant/30 text-on-surface rounded-bl-sm'
                   }`}
               >
                 <pre className="whitespace-pre-wrap font-body-md" style={{ fontFamily: 'inherit' }}>
@@ -411,8 +411,8 @@ const ChatPanel = ({ roomId, user }) => {
               <div
                 key={i}
                 className={`flex flex-col gap-0.5 ${isMe
-                    ? 'items-end'
-                    : 'items-start'
+                  ? 'items-end'
+                  : 'items-start'
                   }`}
               >
 
@@ -424,8 +424,8 @@ const ChatPanel = ({ roomId, user }) => {
 
                 <div
                   className={`max-w-[90%] rounded-xl px-3 py-1.5 text-[11px] font-body-md ${isMe
-                      ? 'bg-primary/20 text-on-surface'
-                      : 'bg-surface-variant/30 text-on-surface-variant'
+                    ? 'bg-primary/20 text-on-surface'
+                    : 'bg-surface-variant/30 text-on-surface-variant'
                     }`}
                 >
                   {msg.content}
@@ -472,133 +472,133 @@ const ChatPanel = ({ roomId, user }) => {
 
 // ── Snapshot Panel ────────────────────────────────────────────────────────────
 const SnapshotPanel = ({
-    snapshots, loading, label, setLabel,
-    showInput, setShowInput,
-    onSave, onRestore, onDelete
+  snapshots, loading, label, setLabel,
+  showInput, setShowInput,
+  onSave, onRestore, onDelete
 }) => {
-    const formatTime = (dateVal) => {
-        if (!dateVal) return '—';
-        const date = Array.isArray(dateVal)
-            ? new Date(dateVal[0], dateVal[1]-1, dateVal[2], dateVal[3]||0, dateVal[4]||0)
-            : new Date(dateVal);
-        const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-        if (diff < 60) return 'just now';
-        if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-        if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-        return `${Math.floor(diff/86400)}d ago`;
-    };
+  const formatTime = (dateVal) => {
+    if (!dateVal) return '—';
+    const date = Array.isArray(dateVal)
+      ? new Date(dateVal[0], dateVal[1] - 1, dateVal[2], dateVal[3] || 0, dateVal[4] || 0)
+      : new Date(dateVal);
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
 
-    return (
-        <div className="flex flex-col h-full overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant/20 flex-shrink-0">
-                <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-label-sm">
-                    Snapshots
-                </span>
-                <button
-                    onClick={() => setShowInput(v => !v)}
-                    className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 hover:bg-primary/20 text-primary rounded text-[10px] font-label-sm transition-all"
-                    title="Save snapshot"
-                >
-                    <span className="material-symbols-outlined text-[12px]">add_a_photo</span>
-                    Save
-                </button>
-            </div>
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant/20 flex-shrink-0">
+        <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-label-sm">
+          Snapshots
+        </span>
+        <button
+          onClick={() => setShowInput(v => !v)}
+          className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 hover:bg-primary/20 text-primary rounded text-[10px] font-label-sm transition-all"
+          title="Save snapshot"
+        >
+          <span className="material-symbols-outlined text-[12px]">add_a_photo</span>
+          Save
+        </button>
+      </div>
 
-            {/* Save input */}
-            {showInput && (
-                <div className="px-3 py-2 border-b border-outline-variant/20 flex flex-col gap-1.5 flex-shrink-0 bg-primary/5">
-                    <input
-                        autoFocus
-                        value={label}
-                        onChange={e => setLabel(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter') onSave();
-                            if (e.key === 'Escape') setShowInput(false);
-                        }}
-                        placeholder="Label (e.g. before refactor)"
-                        className="bg-black/20 border border-outline-variant/40 rounded px-2 py-1 text-on-surface text-[11px] focus:outline-none focus:border-primary/60 font-code-md"
-                    />
-                    <div className="flex gap-1">
-                        <button
-                            onClick={onSave}
-                            disabled={loading}
-                            className="flex-1 py-1 bg-primary text-on-primary rounded text-[10px] font-bold hover:brightness-110 disabled:opacity-50 transition-all"
-                        >
-                            {loading ? 'Saving...' : 'Save snapshot'}
-                        </button>
-                        <button
-                            onClick={() => setShowInput(false)}
-                            className="px-2 py-1 border border-outline-variant/40 text-on-surface-variant rounded text-[10px] hover:bg-surface-variant/20 transition-all"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Snapshot list */}
-            <div className="flex-1 min-h-0 overflow-y-auto py-1">
-                {snapshots.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 gap-2 opacity-40">
-                        <span className="material-symbols-outlined text-[28px] text-on-surface-variant">history</span>
-                        <p className="text-on-surface-variant text-[10px]">No snapshots yet</p>
-                        <p className="text-on-surface-variant text-[9px]">Click Save to create one</p>
-                    </div>
-                ) : (
-                    snapshots.map((snap) => (
-                        <div
-                            key={snap.id}
-                            className="group px-3 py-2 hover:bg-surface-variant/20 transition-all border-b border-outline-variant/10"
-                        >
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="material-symbols-outlined text-[11px] text-primary">commit</span>
-                                        <span className="text-on-surface text-[11px] font-medium truncate">
-                                            {snap.label || 'snapshot'}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-on-surface-variant text-[9px]">
-                                            {formatTime(snap.createdAt)}
-                                        </span>
-                                        <span className="text-outline text-[9px]">·</span>
-                                        <span className="text-on-surface-variant text-[9px] truncate">
-                                            {snap.savedBy?.username || 'unknown'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-                                    <button
-                                        onClick={() => onRestore(snap.id, snap.content)}
-                                        className="p-0.5 rounded text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
-                                        title="Restore"
-                                    >
-                                        <span className="material-symbols-outlined text-[12px]">restore</span>
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(snap.id)}
-                                        className="p-0.5 rounded text-on-surface-variant hover:text-error hover:bg-error/10 transition-all"
-                                        title="Delete"
-                                    >
-                                        <span className="material-symbols-outlined text-[12px]">delete</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Code preview */}
-                            <pre className="mt-1.5 text-[9px] font-code-md text-on-surface-variant bg-black/20 rounded px-2 py-1 overflow-hidden max-h-10 leading-relaxed opacity-60">
-                                {snap.content?.split('\n')[0]?.slice(0, 60) || '—'}
-                            </pre>
-                        </div>
-                    ))
-                )}
-            </div>
+      {/* Save input */}
+      {showInput && (
+        <div className="px-3 py-2 border-b border-outline-variant/20 flex flex-col gap-1.5 flex-shrink-0 bg-primary/5">
+          <input
+            autoFocus
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') onSave();
+              if (e.key === 'Escape') setShowInput(false);
+            }}
+            placeholder="Label (e.g. before refactor)"
+            className="bg-black/20 border border-outline-variant/40 rounded px-2 py-1 text-on-surface text-[11px] focus:outline-none focus:border-primary/60 font-code-md"
+          />
+          <div className="flex gap-1">
+            <button
+              onClick={onSave}
+              disabled={loading}
+              className="flex-1 py-1 bg-primary text-on-primary rounded text-[10px] font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+            >
+              {loading ? 'Saving...' : 'Save snapshot'}
+            </button>
+            <button
+              onClick={() => setShowInput(false)}
+              className="px-2 py-1 border border-outline-variant/40 text-on-surface-variant rounded text-[10px] hover:bg-surface-variant/20 transition-all"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-    );
+      )}
+
+      {/* Snapshot list */}
+      <div className="flex-1 min-h-0 overflow-y-auto py-1">
+        {snapshots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-2 opacity-40">
+            <span className="material-symbols-outlined text-[28px] text-on-surface-variant">history</span>
+            <p className="text-on-surface-variant text-[10px]">No snapshots yet</p>
+            <p className="text-on-surface-variant text-[9px]">Click Save to create one</p>
+          </div>
+        ) : (
+          snapshots.map((snap) => (
+            <div
+              key={snap.id}
+              className="group px-3 py-2 hover:bg-surface-variant/20 transition-all border-b border-outline-variant/10"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[11px] text-primary">commit</span>
+                    <span className="text-on-surface text-[11px] font-medium truncate">
+                      {snap.label || 'snapshot'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-on-surface-variant text-[9px]">
+                      {formatTime(snap.createdAt)}
+                    </span>
+                    <span className="text-outline text-[9px]">·</span>
+                    <span className="text-on-surface-variant text-[9px] truncate">
+                      {snap.savedBy?.username || 'unknown'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                  <button
+                    onClick={() => onRestore(snap.id, snap.content)}
+                    className="p-0.5 rounded text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all"
+                    title="Restore"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">restore</span>
+                  </button>
+                  <button
+                    onClick={() => onDelete(snap.id)}
+                    className="p-0.5 rounded text-on-surface-variant hover:text-error hover:bg-error/10 transition-all"
+                    title="Delete"
+                  >
+                    <span className="material-symbols-outlined text-[12px]">delete</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Code preview */}
+              <pre className="mt-1.5 text-[9px] font-code-md text-on-surface-variant bg-black/20 rounded px-2 py-1 overflow-hidden max-h-10 leading-relaxed opacity-60">
+                {snap.content?.split('\n')[0]?.slice(0, 60) || '—'}
+              </pre>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 };
 // ── Workspace ─────────────────────────────────────────────────────────────────
 const EditorWorkspace = () => {
@@ -643,7 +643,7 @@ const EditorWorkspace = () => {
   // UI state
   const [rightTab, setRightTab] = useState('ai');
   const [showFileTree, setShowFileTree] = useState(true);
-  
+
   // --- Diff State ---
   const [diffOriginalContent, setDiffOriginalContent] = useState('');
   const [isDiffLoading, setIsDiffLoading] = useState(false);
@@ -668,7 +668,7 @@ const EditorWorkspace = () => {
 
   // Panel widths (desktop)
   const [fileTreeWidth, setFileTreeWidth] = useState(210);
-  const [rightPanelWidth, setRightPanelWidth] = useState(300);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(300);
 
   // Refs
   const editorRef = useRef(null);
@@ -846,24 +846,25 @@ const EditorWorkspace = () => {
   // =========================
   useEffect(() => {
     let unsubscribe = null;
-    
-    if (wsStatus === "connected") {
-        unsubscribe = wsService.subscribe(`/topic/room/${roomId}/execution`, (msg) => {
-            // Ignore messages from other executions to prevent interleaving streams!
-            if (msg.execId && msg.execId !== activeExecIdRef.current) {
-                return;
-            }
 
-            if (msg.type === "stdout" || msg.type === "stderr" || msg.type === "system" || msg.type === "error") {
-                setOutput(prev => prev + msg.data);
-                setRightTab('output');
-                setIsRunning(false); 
-            }
-        });
+    if (wsStatus === "connected") {
+      unsubscribe = wsService.subscribe(`/topic/room/${roomId}/execution`, (msg) => {
+        // Ignore messages from other executions to prevent interleaving streams!
+        // If activeExecIdRef is not yet set, we accept the incoming stream (solves race condition where WS is faster than HTTP response)
+        if (activeExecIdRef.current && msg.execId && msg.execId !== activeExecIdRef.current) {
+          return;
+        }
+
+        if (msg.type === "stdout" || msg.type === "stderr" || msg.type === "system" || msg.type === "error") {
+          setOutput(prev => prev + msg.data);
+          setRightTab('output');
+          setIsRunning(false);
+        }
+      });
     }
 
     return () => {
-        if (unsubscribe) unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, [roomId, wsStatus]);
 
@@ -889,13 +890,30 @@ const EditorWorkspace = () => {
         const ytext = ydoc.getText('monaco');
         const editor = editorRef.current;
 
+        // Step 1: Initialize IndexedDB persistence FIRST and wait for it to sync.
+        // This ensures IndexedDB content populates ytext before we decide to seed it.
+        await new Promise((resolve) => {
+          const indexeddbProvider = new IndexeddbPersistence(fileId, ydoc);
+          indexeddbProvider.on('synced', () => {
+            console.log('[Yjs] Local content loaded from IndexedDB for file', fileId);
+            resolve();
+          });
+          // Resolve after 500ms regardless, in case IndexedDB is empty/unavailable
+          setTimeout(resolve, 500);
+        });
+
+        // Step 2: Only seed from editor (DB content) if Yjs doc is STILL empty after IndexedDB sync.
+        // This prevents double-write when IndexedDB already has the content.
         if (ytext.length === 0) {
           const initial = editor.getValue();
           if (initial) {
             ydoc.transact(() => ytext.insert(0, initial));
           }
+        } else {
+          // IndexedDB had content — push it into the editor to keep them in sync
+          editor.setValue(ytext.toString());
         }
-        
+
         const awareness = yjsService.getAwarenessForRoom(roomId, fileId);
         if (awareness) {
           awareness.setLocalStateField('user', {
@@ -911,12 +929,6 @@ const EditorWorkspace = () => {
           awareness ?? null
         );
         bindingRef.current = binding;
-
-        // Offline Persistence
-        const indexeddbProvider = new IndexeddbPersistence(fileId, ydoc);
-        indexeddbProvider.on('synced', () => {
-          console.log('[Yjs] Local content loaded from IndexedDB for file', fileId);
-        });
 
         console.log('[Yjs] Bound to Monaco successfully for file', fileId);
       } catch (err) {
@@ -940,7 +952,7 @@ const EditorWorkspace = () => {
     };
   }, [activeFile?.id, wsStatus, roomId, user, editorReady]);
 
-  
+
   // =========================
   // Presence
   // =========================
@@ -1032,14 +1044,17 @@ const EditorWorkspace = () => {
     (side) => (e) => {
       e.preventDefault();
       const startX = e.clientX;
-      const startWidth = side === 'left' ? fileTreeWidth : rightPanelWidth;
+      const startY = e.clientY;
+      const startWidth = fileTreeWidth;
+      const startHeight = bottomPanelHeight;
 
       const onMove = (ev) => {
-        const delta = ev.clientX - startX;
         if (side === 'left') {
+          const delta = ev.clientX - startX;
           setFileTreeWidth(Math.max(150, Math.min(380, startWidth + delta)));
         } else {
-          setRightPanelWidth(Math.max(220, Math.min(500, startWidth - delta)));
+          const deltaY = ev.clientY - startY;
+          setBottomPanelHeight(Math.max(150, Math.min(600, startHeight - deltaY)));
         }
       };
       const onUp = () => {
@@ -1049,7 +1064,7 @@ const EditorWorkspace = () => {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [fileTreeWidth, rightPanelWidth]
+    [fileTreeWidth, bottomPanelHeight]
   );
 
   // ── Helpers for recursive tree operations ──
@@ -1110,7 +1125,7 @@ const EditorWorkspace = () => {
       setOpenFiles(prev => [...prev, diffTab]);
     }
     setActiveFile(diffTab);
-    
+
     setIsDiffLoading(true);
     try {
       const response = await api.get(`/git/${roomId}/file/head?path=${targetFile.name}`);
@@ -1242,22 +1257,42 @@ const EditorWorkspace = () => {
 
   const monacoLanguage = MONACO_LANGUAGE_MAP[fileLanguage] || 'javascript';
 
+  const handleEditorBeforeMount = (monaco) => {
+    monaco.editor.defineTheme('hence-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '757575', fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'ff7b72' },
+        { token: 'string', foreground: 'a5d6ff' },
+        { token: 'variable', foreground: 'ffa657' },
+      ],
+      colors: {
+        'editor.background': '#070709',
+        'editor.lineHighlightBackground': '#111115',
+        'editorLineNumber.foreground': '#444455',
+        'editorLineNumber.activeForeground': '#0070f3',
+        'editor.selectionBackground': 'rgba(0, 112, 243, 0.25)',
+      }
+    });
+  };
+
   const wsColor = {
-    connected: 'bg-green-400',
-    connecting: 'bg-yellow-400 animate-pulse',
-    disconnected: 'bg-red-400',
+    connected: 'bg-green-400 shadow-[0_0_8px_#22c55e]',
+    connecting: 'bg-yellow-400 animate-pulse shadow-[0_0_8px_#eab308]',
+    disconnected: 'bg-red-400 shadow-[0_0_8px_#ef4444]',
   }[wsStatus];
 
   return (
-    <div className="flex flex-col h-screen bg-background text-on-surface overflow-hidden select-none">
+    <div className="flex flex-col h-screen bg-black text-on-surface overflow-hidden select-none">
 
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      <header className="flex-shrink-0 h-11 bg-[#0a0a0a]/95 backdrop-blur-2xl border-b border-[#222] flex items-center px-3 gap-3 z-30">
+      <header className="flex-shrink-0 h-11 bg-black/40 backdrop-blur-xl border-b border-white/10 flex items-center px-4 gap-3 z-30">
 
         {/* Back */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-variant/30 flex-shrink-0"
+          className="text-white/60 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 flex-shrink-0"
           title="Back to Dashboard"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -1266,7 +1301,7 @@ const EditorWorkspace = () => {
         {/* File tree toggle */}
         <button
           onClick={() => setShowFileTree((v) => !v)}
-          className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-variant/30 flex-shrink-0"
+          className="text-white/60 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 flex-shrink-0"
           title="Toggle file tree"
         >
           <span className="material-symbols-outlined text-[18px]">
@@ -1274,11 +1309,11 @@ const EditorWorkspace = () => {
           </span>
         </button>
 
-        <div className="w-px h-5 bg-[#333] flex-shrink-0" />
+        <div className="w-px h-5 bg-white/10 flex-shrink-0" />
 
         {/* Room name + language */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h1 className="font-headline-md text-headline-md text-on-surface truncate text-[13px] font-semibold">
+          <h1 className="font-headline-md text-headline-md text-white truncate text-[13px] font-semibold tracking-tight">
             {currentRoom?.name || 'Loading...'}
           </h1>
           {currentRoom?.language && (
@@ -1292,22 +1327,21 @@ const EditorWorkspace = () => {
         {currentRoom?.inviteCode && (
           <button
             onClick={copyInviteCode}
-            className="hidden sm:flex items-center gap-1.5 bg-black/20 border border-outline-variant/20 rounded-lg px-3 py-1 hover:border-primary/40 transition-all group"
+            className="hidden sm:flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1 hover:border-[#0070f3]/50 hover:bg-white/10 transition-all group"
             title="Copy invite code"
           >
-            <span className="material-symbols-outlined text-[12px] text-on-surface-variant group-hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-[12px] text-white/50 group-hover:text-[#0070f3] transition-colors">
               link
             </span>
-            <span className="font-code-md text-[11px] text-on-surface-variant tracking-widest group-hover:text-on-surface transition-colors">
+            <span className="font-code-md text-[11px] text-white/70 tracking-widest group-hover:text-white transition-colors">
               {currentRoom.inviteCode}
             </span>
-            <span className="material-symbols-outlined text-[12px] text-on-surface-variant">
+            <span className="material-symbols-outlined text-[12px] text-white/40">
               {copied ? 'check' : 'content_copy'}
             </span>
           </button>
         )}
 
-        {/* Connected users */}
         {/* Connected users */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {/* Show count badge */}
@@ -1321,7 +1355,7 @@ const EditorWorkspace = () => {
           )}
 
           <div className="flex items-center" style={{ gap: -4 }}>
-            {connectedUsers.slice(0,5).map((u) => (
+            {connectedUsers.slice(0, 5).map((u) => (
               <UserAvatar
                 key={u.id}
                 user={u}
@@ -1342,13 +1376,13 @@ const EditorWorkspace = () => {
           </div>
         </div>
 
-        <div className="w-px h-5 bg-[#333] flex-shrink-0" />
+        <div className="w-px h-5 bg-white/10 flex-shrink-0" />
 
         {/* Run button */}
         <button
           onClick={handleRun}
           disabled={isRunning}
-          className="flex items-center gap-1.5 bg-white text-black px-4 py-1 rounded-md font-label-sm text-[11px] font-extrabold hover:scale-105 active:scale-95 transition-all disabled:opacity-60 shadow-[0_0_15px_rgba(255,255,255,0.15)] flex-shrink-0 tracking-tight"
+          className="flex items-center gap-1.5 bg-gradient-to-r from-[#0070f3] to-[#00f0ff] hover:brightness-110 hover:shadow-lg hover:shadow-blue-500/30 text-white px-4 py-1.5 rounded-lg font-label-sm text-[11px] font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-60 flex-shrink-0 tracking-tight"
         >
           <span className="material-symbols-outlined text-[14px]">
             {isRunning ? 'progress_activity' : 'play_arrow'}
@@ -1365,7 +1399,7 @@ const EditorWorkspace = () => {
           <>
             <aside
               style={{ width: fileTreeWidth }}
-              className="flex-shrink-0 h-full bg-[#050505] border-r border-[#222] flex flex-col overflow-hidden"
+              className="flex-shrink-0 h-full bg-[#050507]/90 backdrop-blur-md border-r border-white/10 flex flex-col overflow-hidden"
             >
               <div className="flex-1 overflow-hidden">
                 <FileTree
@@ -1378,7 +1412,7 @@ const EditorWorkspace = () => {
                   language={language}
                 />
               </div>
-              <div className="h-[40%] flex-shrink-0 border-t border-[#222]">
+              <div className="h-[40%] flex-shrink-0 border-t border-white/10">
                 <GitPanel roomId={roomId} onFileDiff={handleFileDiff} />
               </div>
             </aside>
@@ -1393,22 +1427,25 @@ const EditorWorkspace = () => {
           </>
         )}
 
-        {/* ── Editor Panel ── */}
-        <main className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+        {/* ── Editor & Bottom Panel Column ── */}
+        <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+        
+          {/* ── Editor Panel ── */}
+          <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
           {/* File tabs */}
-          <div className="flex-shrink-0 flex items-center bg-[#0a0a0a] border-b border-[#222] overflow-x-auto scrollbar-none">
+          <div className="flex-shrink-0 flex items-center bg-[#08080a]/90 backdrop-blur-md border-b border-white/10 overflow-x-auto scrollbar-none">
             {openFiles.map((file) => (
               <div
                 key={file.id}
                 onClick={() => handleFileSelect(file)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-code-md border-r border-outline-variant/15 flex-shrink-0 transition-all hover:bg-surface-variant/20 relative cursor-pointer ${activeFile?.id === file.id
-                    ? 'bg-background text-on-surface'
-                    : 'text-on-surface-variant'
+                className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-code-md border-r border-white/5 flex-shrink-0 transition-all hover:bg-white/5 relative cursor-pointer ${activeFile?.id === file.id
+                  ? 'bg-white/5 text-white'
+                  : 'text-white/40'
                   }`}
               >
                 {activeFile?.id === file.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-white shadow-[0_-2px_10px_rgba(255,255,255,0.5)]" />
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#0070f3] to-[#00f0ff] shadow-[0_-2px_10px_rgba(0,112,243,0.5)]" />
                 )}
                 <span className="material-symbols-outlined text-[11px] opacity-60">
                   {file.type === 'diff' ? 'difference' : getFileIcon(file.name).icon}
@@ -1449,7 +1486,8 @@ const EditorWorkspace = () => {
                   language={monacoLanguage}
                   original={diffOriginalContent}
                   modified={code}
-                  theme="vs-dark"
+                  theme="hence-dark"
+                  beforeMount={handleEditorBeforeMount}
                   options={{
                     readOnly: true,
                     renderSideBySide: true,
@@ -1467,7 +1505,8 @@ const EditorWorkspace = () => {
                 language={monacoLanguage}
                 value={code}
                 onChange={handleCodeChange}
-                theme="vs-dark"
+                theme="hence-dark"
+                beforeMount={handleEditorBeforeMount}
                 onMount={(editor, monaco) => {
 
                   editorRef.current = editor;
@@ -1488,7 +1527,7 @@ const EditorWorkspace = () => {
                       col: e.position.column,
                     });
                   });
-                  
+
                   setEditorReady(true);
                 }}
                 options={{
@@ -1504,48 +1543,38 @@ const EditorWorkspace = () => {
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   smoothScrolling: true,
-                wordWrap: 'on',
-                tabSize: 2,
-                bracketPairColorization: { enabled: true },
-                guides: { bracketPairs: true },
-                suggest: { showStatusBar: true },
-                quickSuggestions: { other: true, comments: false, strings: false },
-                formatOnPaste: true,
-                formatOnType: false,
-                automaticLayout: true,
-              }}
+                  wordWrap: 'on',
+                  tabSize: 2,
+                  bracketPairColorization: { enabled: true },
+                  guides: { bracketPairs: true },
+                  suggest: { showStatusBar: true },
+                  quickSuggestions: { other: true, comments: false, strings: false },
+                  formatOnPaste: true,
+                  formatOnType: false,
+                  automaticLayout: true,
+                }}
               />
             )}
           </div>
         </main>
 
-        {/* Right resize handle */}
+        {/* Bottom resize handle */}
         <div
-          onMouseDown={startResize('right')}
-          className="w-0.5 cursor-col-resize bg-outline-variant/10 hover:bg-primary/40 transition-colors flex-shrink-0 hidden md:block group relative"
+          onMouseDown={startResize('bottom')}
+          className="h-1 cursor-row-resize bg-white/5 hover:bg-[#0070f3]/55 transition-colors flex-shrink-0 hidden md:block group relative z-10"
         >
-          <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-primary/10 transition-colors" />
+          <div className="absolute inset-x-0 -top-1 -bottom-1 group-hover:bg-[#0070f3]/10 transition-colors" />
         </div>
 
-        {/* ── Right Panel ── */}
+        {/* ── Bottom Panel ── */}
         <aside
-          style={{ width: rightPanelWidth }}
-          className="flex-shrink-0 h-full bg-[#050505] border-l border-[#222] flex flex-col overflow-hidden hidden md:flex"
+          style={{ height: bottomPanelHeight }}
+          className="flex-shrink-0 w-full bg-[#050507]/90 backdrop-blur-md border-t border-white/10 flex flex-col overflow-hidden hidden md:flex"
         >
-          {/* Right panel tab buttons — add snapshot tab */}
-            <button
-                onClick={() => setRightTab('snapshots')}
-                className={`px-3 py-1.5 text-[10px] font-label-sm uppercase tracking-widest transition-all ${
-                    rightTab === 'snapshots'
-                        ? 'text-primary border-b-2 border-primary'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-            >
-                Snapshots
-            </button>
-          {/* Tabs */}
-          <div className="flex-shrink-0 flex border-b border-[#222] bg-[#0a0a0a]">
+          {/* Tabs Row */}
+          <div className="flex-shrink-0 flex items-center border-b border-white/10 bg-[#08080a]/90 backdrop-blur-md overflow-x-auto scrollbar-none">
             {[
+              { id: 'snapshots', icon: 'history', label: 'Snapshots' },
               { id: 'ai', icon: 'smart_toy', label: 'AI' },
               { id: 'output', icon: 'data_object', label: 'Output' },
               { id: 'preview', icon: 'web', label: 'Preview' },
@@ -1556,11 +1585,14 @@ const EditorWorkspace = () => {
               <button
                 key={tab.id}
                 onClick={() => setRightTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-label-sm transition-all border-b-[2px] relative ${rightTab === tab.id
-                    ? 'border-white text-white shadow-[inset_0_-2px_10px_rgba(255,255,255,0.1)]'
-                    : 'border-transparent text-on-surface-variant hover:text-white hover:bg-white/5'
+                className={`px-4 flex items-center justify-center gap-1.5 py-2 text-[11px] font-label-sm transition-all border-b-[2px] relative ${rightTab === tab.id
+                  ? 'border-transparent text-white bg-white/5 shadow-[inset_0_-2px_10px_rgba(0,112,243,0.05)]'
+                  : 'border-transparent text-white/50 hover:text-white/80 hover:bg-white/5'
                   }`}
               >
+                {rightTab === tab.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#0070f3] to-[#00f0ff] shadow-[0_-2px_10px_rgba(0,112,243,0.5)]" />
+                )}
                 <span className="material-symbols-outlined text-[14px]">{tab.icon}</span>
                 {tab.label}
               </button>
@@ -1569,6 +1601,19 @@ const EditorWorkspace = () => {
 
           {/* Tab content */}
           <div className="flex-1 overflow-hidden flex flex-col">
+            {rightTab === 'snapshots' && (
+              <SnapshotPanel
+                snapshots={snapshots}
+                loading={snapshotLoading}
+                label={snapshotLabel}
+                setLabel={setSnapshotLabel}
+                showInput={showSnapshotInput}
+                setShowInput={setShowSnapshotInput}
+                onSave={handleSaveSnapshot}
+                onRestore={handleRestoreSnapshot}
+                onDelete={handleDeleteSnapshot}
+              />
+            )}
             {rightTab === 'ai' && (
               <AIPanel code={code} language={language} />
             )}
@@ -1597,14 +1642,15 @@ const EditorWorkspace = () => {
               <TerminalPanel roomId={roomId} />
             )}
             {rightTab === 'metrics' && (
-              <MetricsPanel roomId={roomId} />  
+              <MetricsPanel roomId={roomId} />
             )}
           </div>
         </aside>
+        </div>
       </div>
 
       {/* ── Status Bar ───────────────────────────────────────────────────────── */}
-      <footer className="flex-shrink-0 h-6 bg-[#000] border-t border-[#222] flex items-center px-3 gap-4 text-[10px] font-code-md text-white/60">
+      <footer className="flex-shrink-0 h-6 bg-black border-t border-white/5 flex items-center px-4 gap-4 text-[10px] font-code-md text-white/45">
         <div className="flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${wsColor}`} />
           <span className="capitalize">{wsStatus}</span>
@@ -1618,11 +1664,10 @@ const EditorWorkspace = () => {
 
         <span className="ml-auto opacity-60">UTF-8</span>
 
-
         <button
           onClick={handleRun}
           disabled={isRunning}
-          className="ml-2 flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50"
+          className="ml-2 flex items-center gap-1 text-white/50 hover:text-white transition-colors disabled:opacity-50"
           title="Run (Ctrl+Enter)"
         >
           <span className="material-symbols-outlined text-[12px]">play_arrow</span>

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import useAuthStore from './store/authStore';
 
 // Pages
 import Landing from './pages/Landing/Landing';
@@ -20,8 +21,15 @@ import MobileGuard from './components/MobileGaurd';
 import ActivityLog from './pages/ActivityLog/ActivityLog';
 import DashboardLayout from './layouts/DashboardLayout';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
+import AuthSuccess from './pages/AuthSuccess/AuthSuccess';
 
 function App() {
+  const { fetchMe } = useAuthStore();
+
+  useEffect(() => {
+    fetchMe();
+  }, [fetchMe]);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -29,6 +37,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/success" element={<AuthSuccess />} />
 
 
         {/* Shared Dashboard Layout Routes */}
