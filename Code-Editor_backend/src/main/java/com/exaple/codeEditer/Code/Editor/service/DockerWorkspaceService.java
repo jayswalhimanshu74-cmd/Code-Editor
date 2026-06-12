@@ -11,6 +11,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.exaple.codeEditer.Code.Editor.entity.File;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
+import com.exaple.codeEditer.Code.Editor.repository.WorkspaceRepository;
 import com.github.dockerjava.api.model.Frame;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class DockerWorkspaceService {
     private DockerClient dockerClient;
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
+    private final WorkspaceRepository workspaceRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     // Map Room ID to Docker Container ID
@@ -180,7 +182,11 @@ public class DockerWorkspaceService {
     }
 
     public String getContainerId(String roomId) {
-        return activeWorkspaces.get(roomId);
+        String fromMap = activeWorkspaces.get(roomId);
+        if (fromMap != null) return fromMap;
+        return workspaceRepository.findById(roomId)
+            .map(com.exaple.codeEditer.Code.Editor.entity.WorkspaceEntity::getContainerId)
+            .orElse(null);
     }
 
     /**
@@ -218,9 +224,15 @@ public class DockerWorkspaceService {
             }
 
             roomRepository.findById(UUID.fromString(roomId)).ifPresent(room -> {
-                List<File> files = fileRepository.findByRoomAndParentIsNull(room);
-                for (File file : files) {
-                    writeNodeToDisk(file, roomDir);
+                List<File> allFiles = fileRepository.findByRoom(room);
+                Map<UUID, List<File>> childMap = allFiles.stream()
+                        .filter(f -> f.getParent() != null)
+                        .collect(java.util.stream.Collectors.groupingBy(f -> f.getParent().getId()));
+                List<File> roots = allFiles.stream()
+                        .filter(f -> f.getParent() == null)
+                        .toList();
+                for (File file : roots) {
+                    writeNodeToDisk(file, roomDir, childMap);
                 }
             });
             log.info("Synced workspace {} to host disk at {}", roomId, roomDir);
@@ -229,16 +241,16 @@ public class DockerWorkspaceService {
         }
     }
 
-    private void writeNodeToDisk(File file, Path currentPath) {
+    private void writeNodeToDisk(File file, Path currentPath, Map<UUID, List<File>> childMap) {
         try {
             Path nodePath = currentPath.resolve(file.getName());
             if (Boolean.TRUE.equals(file.getIsFolder())) {
                 if (!Files.exists(nodePath)) {
                     Files.createDirectories(nodePath);
                 }
-                List<File> children = fileRepository.findByParent(file);
+                List<File> children = childMap.getOrDefault(file.getId(), java.util.Collections.emptyList());
                 for (File child : children) {
-                    writeNodeToDisk(child, nodePath);
+                    writeNodeToDisk(child, nodePath, childMap);
                 }
             } else {
                 String content = file.getContent() != null ? file.getContent() : "";
@@ -308,12 +320,15 @@ public class DockerWorkspaceService {
         }
     }
 
+    @Deprecated
     public void executeCommandStream(String roomId, String cmd, String workingDir, String execId) {
-        // Now mostly a legacy fallback for the terminal, or we can leave it.
-        // The real execution sandbox is handled by runEphemeralSandbox.
+        throw new UnsupportedOperationException(
+            "executeCommandStream is deprecated. Use runEphemeralSandbox for sandboxed code execution " +
+            "or connect via TerminalWebSocketHandler for interactive terminal access."
+        );
     }
 
-    public void runEphemeralSandbox(String roomId, String execId, String cmd, StringBuilder fullOutput) {
+    public int runEphemeralSandbox(String roomId, String execId, String cmd, StringBuilder fullOutput) {
         String hostPath = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().toString();
         String safeCmd = "timeout -k 2s 14s bash -c '" + cmd.replace("'", "'\\''") + "'";
 
@@ -348,12 +363,24 @@ public class DockerWorkspaceService {
                         }
                     }).awaitCompletion(15, java.util.concurrent.TimeUnit.SECONDS);
 
+            int exitCode = -1;
+            try {
+                com.github.dockerjava.api.command.WaitContainerResultCallback waitCb = new com.github.dockerjava.api.command.WaitContainerResultCallback();
+                dockerClient.waitContainerCmd(container.getId()).exec(waitCb);
+                exitCode = waitCb.awaitStatusCode(3, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception e) {
+                // If autoRemove=true races with waitContainerCmd
+            }
+
             sendExecutionMessage(roomId, execId, "system", "\n[Process Exited]");
+            return exitCode;
         } catch (InterruptedException e) {
             sendExecutionMessage(roomId, execId, "error", "\n[Execution Timeout: Process forcefully terminated]");
             Thread.currentThread().interrupt();
+            return -1;
         } catch (Exception e) {
             sendExecutionMessage(roomId, execId, "error", "\n[Execution Error: " + e.getMessage() + "]");
+            return -1;
         }
     }
 

@@ -59,9 +59,10 @@ const TerminalPanel = ({ roomId }) => {
         fitAddonRef.current = fitAddon;
 
         // Connect to raw WebSocket on backend
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Assuming backend is on port 8080 during dev
-        let wsUrl = `${wsProtocol}//localhost:8080/ws/terminal?roomId=${roomId}`;
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+        const wsProtocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:';
+        const host = baseUrl.replace(/^https?:\/\//, '');
+        let wsUrl = `${wsProtocol}//${host}/ws/terminal?roomId=${roomId}`;
         if (user) {
             wsUrl += `&username=${encodeURIComponent(user.username)}&email=${encodeURIComponent(user.email)}`;
         }

@@ -20,11 +20,10 @@ public class GitHubTokenEncryptor {
     private final SecretKeySpec secretKey;
 
     public GitHubTokenEncryptor(@Value("${github.token.encryption.key}") String encryptionKey) {
-        if (encryptionKey == null || encryptionKey.length() < 32) {
-            throw new IllegalArgumentException("GitHub token encryption key must be at least 32 characters long.");
+        if (encryptionKey == null || encryptionKey.getBytes(StandardCharsets.UTF_8).length != 32) {
+            throw new IllegalStateException("GITHUB_TOKEN_ENCRYPTION_KEY must be exactly 32 bytes for AES-256");
         }
-        byte[] keyBytes = encryptionKey.substring(0, 32).getBytes(StandardCharsets.UTF_8);
-        this.secretKey = new SecretKeySpec(keyBytes, "AES");
+        this.secretKey = new SecretKeySpec(encryptionKey.getBytes(StandardCharsets.UTF_8), "AES");
     }
 
     public String encrypt(String plaintext) {

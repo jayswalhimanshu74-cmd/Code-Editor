@@ -33,3 +33,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+cloud-workspaces/
+cloud-snapshots/
+.exec/
+target/classes/workspace-image/
