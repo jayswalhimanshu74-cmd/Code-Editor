@@ -13,3 +13,7 @@ Code-Editor_backend/cloud-workspaces/
 Code-Editor_backend/thread_dump.txt
 capture_screenshots.py
 take_screenshots.js
+**/cloud-workspaces/
+**/cloud-snapshots/
+**/.exec/
+*.zip

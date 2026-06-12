@@ -63,9 +63,9 @@ public class AuthController {
             authService.logout(userDetails.getUsername());
         }
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax").build();
+                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("None").build();
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax").build();
+                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("None").build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
@@ -75,9 +75,9 @@ public class AuthController {
 
     private ResponseEntity<AuthResponse> buildCookieResponse(AuthResponse authResponse) {
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", authResponse.getAccessToken())
-                .httpOnly(true).secure(false).path("/").maxAge(900).sameSite("Lax").build(); // 15 mins
+                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("None").build(); // 15 mins
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", authResponse.getRefreshToken())
-                .httpOnly(true).secure(false).path("/").maxAge(604800).sameSite("Lax").build(); // 7 days
+                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("None").build(); // 7 days
 
         // Remove tokens from JSON body
         authResponse.setAccessToken(null);

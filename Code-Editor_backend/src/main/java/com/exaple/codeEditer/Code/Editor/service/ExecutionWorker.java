@@ -147,17 +147,25 @@ public class ExecutionWorker {
 
         try {
             // Write source code to the shared workspace directory
-            Path roomDir = Paths.get(HOST_WORKSPACES_DIR, roomId);
-            if (!Files.exists(roomDir)) {
-                Files.createDirectories(roomDir);
-            }
-            Path filePath = roomDir.resolve(filename);
+            Path execDir = Paths.get(HOST_WORKSPACES_DIR, roomId, ".exec", execId);
+            Files.createDirectories(execDir);
+            Path filePath = execDir.resolve(filename);
             Files.writeString(filePath, history.getSourceCode());
 
             // 3. Execute in ephemeral sandbox
-            dockerWorkspaceService.runEphemeralSandbox(roomId, execId, runCommand, fullOutput);
+            String isolatedCommand = "cd .exec/" + execId + " && " + runCommand;
+            int exitCode = dockerWorkspaceService.runEphemeralSandbox(roomId, execId, isolatedCommand, fullOutput);
             
-            history.setStatus(ExecutionHistory.ExecutionStatus.SUCCESS);
+            history.setExitCode(exitCode);
+            if (exitCode == 0) {
+                history.setStatus(ExecutionHistory.ExecutionStatus.SUCCESS);
+            } else if (fullOutput.toString().contains("[Execution Timeout")) {
+                history.setStatus(ExecutionHistory.ExecutionStatus.TIMEOUT);
+            } else {
+                history.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
+            }
+            try { Files.walk(execDir).sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete()); }
+            catch (Exception ignored) {}
         } catch (Exception e) {
             log.error("Execution failed for {}: {}", execId, e.getMessage());
             history.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
