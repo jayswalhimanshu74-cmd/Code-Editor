@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -55,22 +54,29 @@ public class PreviewService {
             String containerName = "workspace-" + roomId;
             String hostRule = "Host(`" + port + "-" + roomId + ".ide.localhost`)";
 
-            // Generate a simple dynamic configuration for Traefik File Provider
+            // Generate a simple dynamic configuration for Traefik File Provider with ForwardAuth security
             String yamlContent = String.format("""
                     http:
                       routers:
                         %s:
                           rule: "%s"
                           service: "%s"
+                          middlewares:
+                            - %s-auth
                           entryPoints:
                             - web
+                      middlewares:
+                        %s-auth:
+                          forwardAuth:
+                            address: "http://host.docker.internal:8080/api/auth/forward"
+                            trustForwardHeader: true
                       services:
                         %s:
                           loadBalancer:
                             servers:
                               - url: "http://%s:%d"
                             passHostHeader: true
-                    """, routerName, hostRule, routerName, routerName, containerName, port);
+                    """, routerName, hostRule, routerName, routerName, routerName, routerName, containerName, port);
 
             Path configPath = Paths.get(TraefikManagerService.TRAEFIK_CONFIG_DIR, routerName + ".yml");
             try (FileWriter writer = new FileWriter(configPath.toFile())) {

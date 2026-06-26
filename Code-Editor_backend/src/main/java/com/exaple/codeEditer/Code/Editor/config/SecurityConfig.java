@@ -24,6 +24,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -32,6 +33,7 @@ public class SecurityConfig {
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final com.exaple.codeEditer.Code.Editor.security.CustomOAuth2UserService customOAuth2UserService;
     private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -66,7 +68,8 @@ public class SecurityConfig {
                             .successHandler(oAuth2AuthenticationSuccessHandler)
                     )
                     .authenticationProvider(authenticationProvider())
-                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                    .addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
             return http.build();
         }

@@ -31,6 +31,7 @@ public class FileService {
     private final UserRepository userRepository;
     private final FileEditLogService fileEditLogService;
     private final FileEditLogRepository fileEditLogRepository;
+    private final PathSecurityService pathSecurityService;
 
     public List<FileResponse> getFileTree(UUID roomId, String email) {
         Room room = getRoom(roomId);
@@ -58,6 +59,10 @@ public class FileService {
             String email) {
         Room room = getRoom(roomId);
         checkMembership(room, email);
+
+        if (!pathSecurityService.isNameSafe(request.getName())) {
+            throw new SecurityException("Invalid file name: directory traversal or path separators not allowed");
+        }
 
         File parent = null;
         if (request.getParentId() != null) {
@@ -90,6 +95,10 @@ public class FileService {
 
         File file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("File not found"));
+
+        if (request.getName() != null && !pathSecurityService.isNameSafe(request.getName())) {
+            throw new SecurityException("Invalid file name: directory traversal or path separators not allowed");
+        }
 
         boolean isRename = request.getName() != null;
         if (request.getName() != null)

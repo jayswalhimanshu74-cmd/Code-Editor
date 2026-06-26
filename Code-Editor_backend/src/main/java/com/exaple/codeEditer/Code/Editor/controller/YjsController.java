@@ -37,7 +37,6 @@ public class YjsController {
  
 
 @MessageMapping("/yjs/{roomId}/update")
-@Transactional
 public void handleYjsUpdate(
         @DestinationVariable String roomId,
         @Payload byte[] rawPayload
@@ -50,21 +49,8 @@ public void handleYjsUpdate(
 
         log.debug("[Yjs] Received {} bytes for room {}", update.length, roomId);
 
-
-        YjsDocument doc = yjsRepo
-                .findByRoomIdAndFileIdIsNull(roomId)
-                .orElseGet(() -> {
-                    YjsDocument d = new YjsDocument();
-                    d.setRoomId(roomId);
-                    return d;
-                });
-
-        doc.setState(update);
-        yjsRepo.save(doc);
-
         // ✅ Broadcast as Base64 string — clients decode it
-        redisPublisher.publish("/topic/yjs/" + 
-                                    roomId,Base64.getEncoder().encodeToString(update));
+        redisPublisher.publish("/topic/yjs/" + roomId, Base64.getEncoder().encodeToString(update));
 
     } catch (Exception e) {
         log.error("[Yjs] Failed to process update for room {}: {}", roomId, e.getMessage());
@@ -72,7 +58,6 @@ public void handleYjsUpdate(
 }
 
 @MessageMapping("/yjs/{roomId}/file/{fileId}/update")
-@Transactional
 public void handleFileYjsUpdate(
         @DestinationVariable String roomId,
         @DestinationVariable String fileId,
@@ -85,18 +70,6 @@ public void handleFileYjsUpdate(
         byte[] update = Base64.getDecoder().decode(base64.trim());
         
         log.debug("[Yjs] Received {} bytes for room {}/file {}", update.length, roomId, fileId);
-
-        YjsDocument doc = yjsRepo
-                .findByRoomIdAndFileId(roomId, fileId)
-                .orElseGet(() -> {
-                    YjsDocument d = new YjsDocument();
-                    d.setRoomId(roomId);
-                    d.setFileId(fileId);
-                    return d;
-                });
-
-        doc.setState(update);
-        yjsRepo.save(doc);
 
         redisPublisher.publish(
             "/topic/yjs/" + roomId + "/file/" + fileId,

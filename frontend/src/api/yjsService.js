@@ -64,7 +64,8 @@ export const yjsService = {
       try {
         if (typeof data === 'string' && data.length > 0) {
           const binary = Uint8Array.from(atob(data), c => c.charCodeAt(0));
-          if (binary.length > 0) Y.applyUpdate(doc, binary);
+          // Pass wsService as transaction origin to differentiate remote updates
+          if (binary.length > 0) Y.applyUpdate(doc, binary, wsService);
         }
       } catch (err) {
         console.error('[Yjs] Failed to apply remote update:', err);
@@ -72,11 +73,41 @@ export const yjsService = {
     }, true);
     console.log('[Yjs] sub type after subscribe:', typeof sub, sub);
 
-    // 3. Send local doc updates
-    const observer = (update) => {
+    // 3. Send local doc updates & debounce persistence to database
+    let debounceTimeout = null;
+    const observer = (update, origin) => {
       try {
-       
-        wsService.sendBinary(sendTo,update);
+        wsService.sendBinary(sendTo, update);
+        
+        // Only persist to DB if the change originated locally
+        if (origin !== wsService) {
+          if (debounceTimeout) clearTimeout(debounceTimeout);
+          debounceTimeout = setTimeout(async () => {
+            try {
+              const fullState = Y.encodeStateAsUpdate(doc);
+              // Safe conversion to Base64 without call-stack size limit risk
+              let binaryString = '';
+              const bytes = new Uint8Array(fullState);
+              const len = bytes.byteLength;
+              for (let i = 0; i < len; i++) {
+                binaryString += String.fromCharCode(bytes[i]);
+              }
+              const base64 = btoa(binaryString);
+
+              await fetch(`${restUrl}/state`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'text/plain',
+                },
+                body: base64,
+                credentials: 'include',
+              });
+              console.log('[Yjs] Full state persisted to database for key:', key);
+            } catch (err) {
+              console.error('[Yjs] Failed to persist full state to DB:', err);
+            }
+          }, 2000);
+        }
       } catch (err) {
         console.error('[Yjs] Failed to send update:', err);
       }
@@ -101,15 +132,25 @@ export const yjsService = {
       try {
         const changedClients = [...added, ...updated, ...removed];
         const update = encodeAwarenessUpdate(awareness, changedClients);
-        wsService.sendBinary(awareSendTo, update); // ✅ pass Uint8Array directly
+        wsService.sendBinary(awareSendTo, update);
       } catch (err) {
         console.error('[Yjs] Failed to send awareness:', err);
       }
     };
     awareness.on('change', awareObserver);
 
-cleanups.set(key, { unsub: sub, awareUnsub: awareSub, observer, awareObserver, doc, awareness });
-console.log('[Yjs] cleanup stored, unsub type:', typeof sub, 'awareUnsub type:', typeof awareSub);
+    cleanups.set(key, {
+      unsub: sub,
+      awareUnsub: awareSub,
+      observer,
+      awareObserver,
+      doc,
+      awareness,
+      clearDebounce: () => {
+        if (debounceTimeout) clearTimeout(debounceTimeout);
+      }
+    });
+    console.log('[Yjs] cleanup stored, unsub type:', typeof sub, 'awareUnsub type:', typeof awareSub);
     return doc;
   },
 
@@ -122,10 +163,11 @@ console.log('[Yjs] cleanup stored, unsub type:', typeof sub, 'awareUnsub type:',
     const key = fileId ? `${roomId}:${fileId}` : roomId;
     const info = cleanups.get(key);
     if (info) {
+      info.clearDebounce?.();
       info.doc.off('update', info.observer);
       info.awareness?.off('change', info.awareObserver);
-      if (typeof info.unsub === 'function') info.unsub();      // ✅
-      if (typeof info.awareUnsub === 'function') info.awareUnsub(); // ✅
+      if (typeof info.unsub === 'function') info.unsub();
+      if (typeof info.awareUnsub === 'function') info.awareUnsub();
       cleanups.delete(key);
     }
     docs.delete(key);

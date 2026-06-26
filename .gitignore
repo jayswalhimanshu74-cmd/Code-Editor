@@ -17,3 +17,8 @@ take_screenshots.js
 **/cloud-snapshots/
 **/.exec/
 *.zip
+Main.class
+Main.java
+*.json
+audit-evidence.md
+scratch/

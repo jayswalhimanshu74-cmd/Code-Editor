@@ -7,6 +7,7 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.api.model.Capability;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.exaple.codeEditer.Code.Editor.entity.File;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
@@ -35,12 +36,18 @@ public class DockerWorkspaceService {
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
+    private WorkspaceSyncService workspaceSyncService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
     private DockerClient dockerClient;
     private final FileRepository fileRepository;
     private final RoomRepository roomRepository;
     private final WorkspaceRepository workspaceRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PathSecurityService pathSecurityService;
 
+    public static final String NETWORK_NAME = "Cloud-ide-network";  
     // Map Room ID to Docker Container ID
     private final Map<String, String> activeWorkspaces = new ConcurrentHashMap<>();
 
@@ -48,6 +55,10 @@ public class DockerWorkspaceService {
     private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
     private static final String DOCKERFILE_PATH = System.getProperty("user.dir")
             + "/src/main/resources/workspace-image";
+
+    public void registerRunningWorkspace(String roomId, String containerId) {
+        activeWorkspaces.put(roomId, containerId);
+    }
 
     /**
      * Spins up an isolated Linux container for the workspace.
@@ -58,6 +69,20 @@ public class DockerWorkspaceService {
     public synchronized String provisionContainer(String roomId) {
         if (activeWorkspaces.containsKey(roomId)) {
             return activeWorkspaces.get(roomId);
+        }
+
+        String containerName = "workspace-" + roomId;
+        try {
+            com.github.dockerjava.api.command.InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerName).exec();
+            if (Boolean.TRUE.equals(inspect.getState().getRunning())) {
+                String containerId = inspect.getId();
+                activeWorkspaces.put(roomId, containerId);
+                log.info("Discovered and reattached to already running container: {}", containerId);
+                workspaceSyncService.startSyncing(roomId);
+                return containerId;
+            }
+        } catch (Exception ignored) {
+            // Container doesn't exist or is not running, proceed to create it
         }
 
         try {
@@ -81,7 +106,7 @@ public class DockerWorkspaceService {
             syncWorkspaceToHost(roomId);
             String hostPath = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().toString();
 
-            String containerName = "workspace-" + roomId;
+            containerName = "workspace-" + roomId;
 
             // 3. Cleanup orphaned container if backend restarted abruptly
             try {
@@ -103,6 +128,10 @@ public class DockerWorkspaceService {
                 portBindings.bind(port, Ports.Binding.bindIp("0.0.0.0"));
             }
 
+            String networkName = "cloud-ide-net-" + roomId;
+            ensureNetworkExists(networkName);
+            connectTraefikToNetwork(networkName);
+
             // Use tail -f /dev/null so the container stays alive in the background
             CreateContainerResponse container = dockerClient.createContainerCmd(BASE_IMAGE)
                     .withName(containerName)
@@ -115,7 +144,15 @@ public class DockerWorkspaceService {
                             .withCpuQuota(50000L) // 50% of a single core
                             .withCpuPeriod(100000L)
                             .withBinds(new Bind(hostPath, new Volume("/workspace")))
-                            .withPortBindings(portBindings))
+                            .withPortBindings(portBindings)
+                            .withNetworkMode(networkName)
+                            .withPrivileged(false)
+                            .withPidsLimit(100L)
+                            .withCapDrop(
+                                Capability.SYS_ADMIN, Capability.NET_ADMIN, Capability.SYS_MODULE,
+                                Capability.SYS_PTRACE, Capability.SYS_BOOT, Capability.SYS_RAWIO,
+                                Capability.MKNOD, Capability.AUDIT_CONTROL
+                            ))
                     .exec();
 
             String containerId = container.getId();
@@ -123,6 +160,7 @@ public class DockerWorkspaceService {
             // 3. Start the container
             dockerClient.startContainerCmd(containerId).exec();
             activeWorkspaces.put(roomId, containerId);
+            workspaceSyncService.startSyncing(roomId);
 
             log.info("Started workspace container {} for room {}", containerId, roomId);
             return containerId;
@@ -139,10 +177,18 @@ public class DockerWorkspaceService {
                 dockerClient.stopContainerCmd(containerId).withTimeout(5).exec();
                 dockerClient.removeContainerCmd(containerId).withForce(true).exec();
                 activeWorkspaces.remove(roomId);
+                workspaceSyncService.stopSyncing(roomId);
                 log.info("Stopped and removed workspace container {}", containerId);
             } catch (Exception e) {
                 log.warn("Error stopping workspace container {}: {}", containerId, e.getMessage());
             }
+        }
+        
+        // Clean up the isolated network
+        if (roomId != null) {
+            String networkName = "cloud-ide-net-" + roomId;
+            disconnectTraefikFromNetwork(networkName);
+            removeNetwork(networkName);
         }
     }
 
@@ -218,7 +264,7 @@ public class DockerWorkspaceService {
      */
     public void syncWorkspaceToHost(String roomId) {
         try {
-            Path roomDir = Paths.get(HOST_WORKSPACES_DIR, roomId);
+            Path roomDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().normalize();
             if (!Files.exists(roomDir)) {
                 Files.createDirectories(roomDir);
             }
@@ -232,7 +278,7 @@ public class DockerWorkspaceService {
                         .filter(f -> f.getParent() == null)
                         .toList();
                 for (File file : roots) {
-                    writeNodeToDisk(file, roomDir, childMap);
+                    writeNodeToDisk(file, roomDir, childMap, roomDir.toString());
                 }
             });
             log.info("Synced workspace {} to host disk at {}", roomId, roomDir);
@@ -241,22 +287,28 @@ public class DockerWorkspaceService {
         }
     }
 
-    private void writeNodeToDisk(File file, Path currentPath, Map<UUID, List<File>> childMap) {
+    private void writeNodeToDisk(File file, Path currentPath, Map<UUID, List<File>> childMap, String baseDir) {
         try {
-            Path nodePath = currentPath.resolve(file.getName());
+            if (!pathSecurityService.isNameSafe(file.getName())) {
+                log.warn("Skipping invalid/traversal filename: {}", file.getName());
+                return;
+            }
+            Path nodePath = currentPath.resolve(file.getName()).toAbsolutePath().normalize();
+            pathSecurityService.validatePath(baseDir, nodePath.toString());
+
             if (Boolean.TRUE.equals(file.getIsFolder())) {
                 if (!Files.exists(nodePath)) {
                     Files.createDirectories(nodePath);
                 }
                 List<File> children = childMap.getOrDefault(file.getId(), java.util.Collections.emptyList());
                 for (File child : children) {
-                    writeNodeToDisk(child, nodePath, childMap);
+                    writeNodeToDisk(child, nodePath, childMap, baseDir);
                 }
             } else {
                 String content = file.getContent() != null ? file.getContent() : "";
                 Files.writeString(nodePath, content);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Failed to write file {} to disk", file.getName(), e);
         }
     }
@@ -344,7 +396,14 @@ public class DockerWorkspaceService {
                             .withCpuPeriod(100000L)
                             .withBinds(new com.github.dockerjava.api.model.Bind(hostPath,
                                     new com.github.dockerjava.api.model.Volume("/workspace")))
-                            .withNetworkMode("none")) // Disable networking for security
+                            .withNetworkMode("none") // Disable networking for security
+                            .withPrivileged(false)
+                            .withPidsLimit(100L)
+                            .withCapDrop(
+                                Capability.SYS_ADMIN, Capability.NET_ADMIN, Capability.SYS_MODULE,
+                                Capability.SYS_PTRACE, Capability.SYS_BOOT, Capability.SYS_RAWIO,
+                                Capability.MKNOD, Capability.AUDIT_CONTROL
+                            ))
                     .exec();
 
             // 2. Attach Wait callback BEFORE starting to avoid missing fast exits
@@ -424,5 +483,66 @@ public class DockerWorkspaceService {
         payload.put("type", type);
         payload.put("data", data);
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/execution", payload);
+    }
+
+    private void ensureNetworkExists(String networkName) {
+        try {
+            List<com.github.dockerjava.api.model.Network> networks = dockerClient.listNetworksCmd().withNameFilter(networkName).exec();
+            boolean exists = false;
+            for (com.github.dockerjava.api.model.Network nw : networks) {
+                if (networkName.equals(nw.getName())) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                dockerClient.createNetworkCmd().withName(networkName).exec();
+                log.info("Created isolated Docker network: {}", networkName);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to ensure network {} exists: {}", networkName, e.getMessage());
+        }
+    }
+
+    private void connectTraefikToNetwork(String networkName) {
+        try {
+            // Check if Traefik is already connected
+            com.github.dockerjava.api.command.InspectContainerResponse traefikInfo = dockerClient.inspectContainerCmd(TraefikManagerService.TRAEFIK_CONTAINER_NAME).exec();
+            if (traefikInfo.getNetworkSettings() != null && traefikInfo.getNetworkSettings().getNetworks() != null) {
+                if (traefikInfo.getNetworkSettings().getNetworks().containsKey(networkName)) {
+                    log.info("Traefik already connected to network: {}", networkName);
+                    return;
+                }
+            }
+            dockerClient.connectToNetworkCmd()
+                    .withContainerId(TraefikManagerService.TRAEFIK_CONTAINER_NAME)
+                    .withNetworkId(networkName)
+                    .exec();
+            log.info("Connected Traefik to network: {}", networkName);
+        } catch (Exception e) {
+            log.warn("Could not connect Traefik container to network {}: {}", networkName, e.getMessage());
+        }
+    }
+
+    private void disconnectTraefikFromNetwork(String networkName) {
+        try {
+            dockerClient.disconnectFromNetworkCmd()
+                    .withContainerId(TraefikManagerService.TRAEFIK_CONTAINER_NAME)
+                    .withNetworkId(networkName)
+                    .withForce(true)
+                    .exec();
+            log.info("Disconnected Traefik from network: {}", networkName);
+        } catch (Exception e) {
+            log.warn("Could not disconnect Traefik from network {}: {}", networkName, e.getMessage());
+        }
+    }
+
+    private void removeNetwork(String networkName) {
+        try {
+            dockerClient.removeNetworkCmd(networkName).exec();
+            log.info("Removed isolated network {}", networkName);
+        } catch (Exception e) {
+            log.warn("Could not remove network {}: {}", networkName, e.getMessage());
+        }
     }
 }

@@ -25,12 +25,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
     private final DockerWorkspaceService dockerWorkspaceService;
+    private final com.exaple.codeEditer.Code.Editor.service.AuthorizationService authorizationService;
+    private final com.exaple.codeEditer.Code.Editor.service.AuditLogService auditLogService;
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
     private DockerClient dockerClient;
 
     // Map WebSocket Session ID to the PipedOutputStream for STDIN
     private final Map<String, PipedOutputStream> sessionInputStreams = new ConcurrentHashMap<>();
+    // Map WebSocket Session ID to the Docker Exec ID for resizing
+    private final Map<String, String> sessionExecIds = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -46,7 +50,7 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         String roomId = null;
         String username = principal.getName();
         String email = principal.getName();
-        
+
         if (query != null) {
             String[] params = query.split("&");
             for (String param : params) {
@@ -61,7 +65,22 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
+        java.util.UUID roomUUID;
+        try {
+            roomUUID = java.util.UUID.fromString(roomId);
+        } catch (IllegalArgumentException e) {
+            session.close(CloseStatus.BAD_DATA.withReason("Invalid roomId format"));
+            return;
+        }
+
+        if (!authorizationService.hasPermission(email, roomId, "TERMINAL_ACCESS")) {
+            log.warn("Unauthorized terminal connection attempt by user {} for room {}", email, roomId);
+            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
+            return;
+        }
+
         log.info("Terminal WebSocket connected for room: {}", roomId);
+        auditLogService.log("TERMINAL_ACCESS", "WORKSPACE", roomId, "Terminal connection established by user: " + email);
 
         try {
             // Ensure container is running
@@ -91,12 +110,15 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                     .withCmd("/bin/bash")
                     .exec();
 
+            String execId = exec.getId();
+            sessionExecIds.put(session.getId(), execId);
+
             PipedInputStream in = new PipedInputStream();
             PipedOutputStream out = new PipedOutputStream(in);
             sessionInputStreams.put(session.getId(), out);
 
             // Start the Exec instance
-            dockerClient.execStartCmd(exec.getId())
+            dockerClient.execStartCmd(execId)
                     .withStdIn(in)
                     .withTty(true)
                     .exec(new ExecStartResultCallback() {
@@ -104,7 +126,8 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                         public void onNext(Frame item) {
                             try {
                                 if (session.isOpen()) {
-                                    session.sendMessage(new TextMessage(new String(item.getPayload(), StandardCharsets.UTF_8)));
+                                    session.sendMessage(
+                                            new TextMessage(new String(item.getPayload(), StandardCharsets.UTF_8)));
                                 }
                             } catch (IOException e) {
                                 log.error("Failed to send terminal output to websocket", e);
@@ -114,7 +137,8 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
                     });
         } catch (Exception e) {
             log.error("Docker terminal initialization failed", e);
-            session.sendMessage(new TextMessage("\r\n\u001B[31m[!] Server Error: Could not connect to Docker Daemon.\u001B[0m\r\n\u001B[31m[!] Please ensure Docker Desktop is running on the host machine.\u001B[0m\r\n"));
+            session.sendMessage(new TextMessage(
+                    "\r\n\u001B[31m[!] Server Error: Could not connect to Docker Daemon.\u001B[0m\r\n\u001B[31m[!] Please ensure Docker Desktop is running on the host machine.\u001B[0m\r\n"));
             session.close(CloseStatus.SERVER_ERROR);
         }
     }
@@ -124,9 +148,26 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         PipedOutputStream out = sessionInputStreams.get(session.getId());
         if (out != null) {
             String payload = message.getPayload();
-            log.info("Received terminal input from frontend: {}", payload);
-            out.write(payload.getBytes(StandardCharsets.UTF_8));
-            out.flush();
+            if (payload.startsWith("{\"type\":\"resize\"")) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    Map<String, Object> map = mapper.readValue(payload, Map.class);
+                    int cols = ((Number) map.get("cols")).intValue();
+                    int rows = ((Number) map.get("rows")).intValue();
+                    String execId = sessionExecIds.get(session.getId());
+                    if (execId != null) {
+                        dockerClient.resizeExecCmd(execId)
+                                .withSize(rows, cols)
+                                .exec();
+                        log.info("Resized terminal session {} (execId: {}) to {}x{}", session.getId(), execId, cols, rows);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to resize terminal for session {}", session.getId(), e);
+                }
+            } else {
+                out.write(payload.getBytes(StandardCharsets.UTF_8));
+                out.flush();
+            }
         } else {
             log.warn("No PipedOutputStream found for session {}", session.getId());
         }
@@ -138,8 +179,10 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
         if (out != null) {
             try {
                 out.close();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
+        sessionExecIds.remove(session.getId());
         log.info("Terminal WebSocket disconnected: {}", session.getId());
     }
 }
