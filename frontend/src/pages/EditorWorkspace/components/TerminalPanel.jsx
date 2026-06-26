@@ -42,7 +42,13 @@ const TerminalPanel = ({ roomId }) => {
                     if (terminalRef.current && terminalRef.current.clientWidth > 0 && terminalRef.current.clientHeight > 0 && term.element) {
                         try {
                             fitAddon.fit();
-                            // Optional: send resize to backend if supported later
+                            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                                wsRef.current.send(JSON.stringify({
+                                    type: 'resize',
+                                    cols: term.cols,
+                                    rows: term.rows
+                                }));
+                            }
                         } catch (e) {}
                     }
                 });
@@ -74,6 +80,14 @@ const TerminalPanel = ({ roomId }) => {
             setConnected(true);
             term.reset();
             term.writeln('\x1b[32m[✓] Connected to Cloud IDE Container Workspace\x1b[0m');
+            // Send initial size
+            try {
+                ws.send(JSON.stringify({
+                    type: 'resize',
+                    cols: term.cols,
+                    rows: term.rows
+                }));
+            } catch (e) {}
         };
 
         ws.onmessage = (event) => {

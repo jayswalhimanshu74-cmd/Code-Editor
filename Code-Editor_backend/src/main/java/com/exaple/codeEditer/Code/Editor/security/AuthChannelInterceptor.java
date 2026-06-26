@@ -33,14 +33,37 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
                 handleConnect(accessor);
             } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
                 handleSubscribe(accessor);
-            }else if (StompCommand.SEND.equals(accessor.getCommand())) {
-              String destination = accessor.getDestination();
-              if (destination != null && destination.startsWith("/app/yjs/")) {
-                return message; // ✅ pass through directly
-              }
+            } else if (StompCommand.SEND.equals(accessor.getCommand())) {
+                handleSend(accessor);
             }
         }
         return message;
+    }
+
+    private void handleSend(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (destination != null && (destination.startsWith("/app/room/") || destination.startsWith("/app/yjs/"))) {
+            String[] parts = destination.split("/");
+            if (parts.length >= 4) {
+                String roomIdStr = parts[3];
+                try {
+                    java.util.UUID roomId = java.util.UUID.fromString(roomIdStr);
+                    Object user = accessor.getUser();
+                    if (user instanceof UsernamePasswordAuthenticationToken auth) {
+                        String email = auth.getName();
+                        if (!roomMemberRepository.existsByRoomIdAndUserEmail(roomId, email)) {
+                            log.warn("User {} unauthorized to SEND to room {}", email, roomId);
+                            throw new org.springframework.messaging.MessagingException("Unauthorized to send message to this room");
+                        }
+                    } else {
+                        log.warn("Unauthenticated user attempt to SEND to {}", destination);
+                        throw new org.springframework.messaging.MessagingException("Authentication required");
+                    }
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid room ID in send destination: {}", destination);
+                }
+            }
+        }
     }
 
     private void handleConnect(StompHeaderAccessor accessor) {
@@ -79,8 +102,8 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
     private void handleSubscribe(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
-        if (destination != null && destination.startsWith("/topic/room/")) {
-            // Destination format: /topic/room/{roomId} or /topic/room/{roomId}/cursors
+        if (destination != null && (destination.startsWith("/topic/room/") || destination.startsWith("/topic/yjs/"))) {
+            // Destination format: /topic/room/{roomId} or /topic/yjs/{roomId}/...
             String[] parts = destination.split("/");
             if (parts.length >= 4) {
                 String roomIdStr = parts[3];

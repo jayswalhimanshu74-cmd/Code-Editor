@@ -1,84 +1,51 @@
 package com.exaple.codeEditer.Code.Editor.service;
 
-import io.github.bucket4j.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 @Service
+@RequiredArgsConstructor
 public class RateLimitService {
 
-    // Separate buckets per user per endpoint type
-    private final Map<String, Bucket> executionBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> aiBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> loginBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> registerBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> resetBuckets = new ConcurrentHashMap<>();
+    private final RedisRateLimitStore rateLimitStore;
 
-    /** 10 executions per user per minute */
-    public boolean allowExecution(String userEmail) {
-        Bucket bucket = executionBuckets.computeIfAbsent(
-            userEmail, k -> Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                    .capacity(10)
-                    .refillGreedy(10, Duration.ofMinutes(1))
-                    .build())
-                .build()
-        );
-        return bucket.tryConsume(1);
-    }
-
-    /** 20 AI messages per user per minute */
-    public boolean allowAiChat(String userEmail) {
-        Bucket bucket = aiBuckets.computeIfAbsent(
-            userEmail, k -> Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                    .capacity(20)
-                    .refillGreedy(20, Duration.ofMinutes(1))
-                    .build())
-                .build()
-        );
-        return bucket.tryConsume(1);
-    }
-
-    /** 5 requests per IP per minute */
     public boolean allowLogin(String ip) {
-        Bucket bucket = loginBuckets.computeIfAbsent(
-            ip, k -> Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                    .capacity(5)
-                    .refillGreedy(5, Duration.ofMinutes(1))
-                    .build())
-                .build()
-        );
-        return bucket.tryConsume(1);
+        return rateLimitStore.isAllowed("login:" + ip, 5, 60);
     }
 
-    /** 3 requests per IP per minute */
     public boolean allowRegister(String ip) {
-        Bucket bucket = registerBuckets.computeIfAbsent(
-            ip, k -> Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                    .capacity(3)
-                    .refillGreedy(3, Duration.ofMinutes(1))
-                    .build())
-                .build()
-        );
-        return bucket.tryConsume(1);
+        return rateLimitStore.isAllowed("register:" + ip, 3, 60);
     }
 
-    /** 3 requests per IP per 15 minutes */
+    public boolean allowExecution(String userEmail) {
+        return rateLimitStore.isAllowed("execution:" + userEmail, 10, 60);
+    }
+
     public boolean allowPasswordReset(String ip) {
-        Bucket bucket = resetBuckets.computeIfAbsent(
-            ip, k -> Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                    .capacity(3)
-                    .refillGreedy(3, Duration.ofMinutes(15))
-                    .build())
-                .build()
-        );
-        return bucket.tryConsume(1);
+        return rateLimitStore.isAllowed("passwordreset:" + ip, 3, 900); // 15 mins = 900 seconds
+    }
+
+    public boolean allowAiChat(String userEmail) {
+        return rateLimitStore.isAllowed("aichat:" + userEmail, 20, 60); // 20 messages/min
+    }
+
+    public boolean allowWebSocket(String userEmail) {
+        return rateLimitStore.isAllowed("websocket:" + userEmail, 60, 60);
+    }
+
+    public boolean allowTerminal(String userEmail) {
+        return rateLimitStore.isAllowed("terminal:" + userEmail, 30, 60);
+    }
+
+    public boolean allowPreview(String userEmail) {
+        return rateLimitStore.isAllowed("preview:" + userEmail, 10, 60);
+    }
+
+    public boolean allowGit(String userEmail) {
+        return rateLimitStore.isAllowed("git:" + userEmail, 15, 60);
+    }
+
+    public boolean allowWorkspaceCreation(String userEmail) {
+        return rateLimitStore.isAllowed("workspace:create:" + userEmail, 5, 60);
     }
 }

@@ -26,8 +26,11 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        const isAuthRequest = originalRequest.url?.includes('/auth/refresh') || 
+                              originalRequest.url?.includes('/auth/login') || 
+                              originalRequest.url?.includes('/auth/register');
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
             if (isRefreshing) {
                 // Queue requests while refresh is in progress
                 return new Promise((resolve, reject) => {
@@ -42,14 +45,28 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const response = await authService.refresh();
+                await authService.refresh();
                 processQueue(null, null);
                 return api(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 // Refresh failed — backend will clear cookies
                 wsService.disconnect();
-                window.location.href = '/login';
+                
+                // Dynamically import store to update auth state without circular dependency
+                try {
+                    const { default: useAuthStore } = await import('../store/authStore');
+                    useAuthStore.setState({ user: null, isAuthenticated: false });
+                } catch (storeError) {
+                    console.error('[Axios] Failed to update auth store:', storeError);
+                }
+
+                // Redirect to login only if not already on a public page to avoid reload loops
+                const publicPaths = ['/', '/login', '/register', '/auth/success'];
+                const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+                if (!publicPaths.includes(currentPath)) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

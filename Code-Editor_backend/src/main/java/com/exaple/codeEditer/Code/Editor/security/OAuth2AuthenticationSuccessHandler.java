@@ -35,9 +35,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail());
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken)
-                .httpOnly(true).secure(false).path("/").maxAge(900).sameSite("Lax").build();
+                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("None").build();
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true).secure(false).path("/").maxAge(604800).sameSite("Lax").build();
+                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("None").build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());

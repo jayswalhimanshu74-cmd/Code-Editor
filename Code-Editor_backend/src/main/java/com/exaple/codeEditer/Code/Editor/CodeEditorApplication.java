@@ -11,7 +11,6 @@ public class CodeEditorApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(CodeEditorApplication.class, args);
 
-
 	}
 
 }

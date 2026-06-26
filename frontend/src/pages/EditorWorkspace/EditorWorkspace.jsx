@@ -753,61 +753,73 @@ const EditorWorkspace = () => {
   // =========================
   // Load files
   // =========================
-  useEffect(() => {
-    const loadFiles = async () => {
-      try {
-        const { data } = await fileService.getFiles(roomId);
+  const loadFiles = useCallback(async () => {
+    if (!roomId) return;
+    try {
+      const { data } = await fileService.getFiles(roomId);
 
-        if (!data || data.length === 0) {
-          const created = await fileService.createFile(
-            roomId,
-            `main.${EXTENSIONS[language] || 'js'}`,
-            defaultContent
-          );
-
-          const file = created.data;
-          setFiles([file]);
-          setOpenFiles([file]);
-          setActiveFile(file);
-          selectedFileRef.current = file;
-          setCode(file.content || "");
-          codeRef.current = file.content || "";
-          return;
-        }
-
-        const findFirstFile = (nodes) => {
-          for (const node of nodes) {
-            if (!node.isFolder) return node;
-            if (node.children) {
-              const found = findFirstFile(node.children);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-
-        const firstFile = findFirstFile(data) || data[0];
-
-        setFiles(data);
-        if (firstFile) {
-          setOpenFiles([firstFile]);
-          setActiveFile(firstFile);
-          selectedFileRef.current = firstFile;
-          setCode(firstFile.content || "");
-          codeRef.current = firstFile.content || "";
-        }
-
-      } catch (err) {
-        console.error(
-          "Failed loading files:",
-          err
+      if (!data || data.length === 0) {
+        const created = await fileService.createFile(
+          roomId,
+          `main.${EXTENSIONS[language] || 'js'}`,
+          defaultContent
         );
+
+        const file = created.data;
+        setFiles([file]);
+        setOpenFiles([file]);
+        setActiveFile(file);
+        selectedFileRef.current = file;
+        setCode(file.content || "");
+        codeRef.current = file.content || "";
+        return;
       }
-    };
 
+      const findFirstFile = (nodes) => {
+        for (const node of nodes) {
+          if (!node.isFolder) return node;
+          if (node.children) {
+            const found = findFirstFile(node.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const firstFile = findFirstFile(data) || data[0];
+
+      setFiles(data);
+      if (firstFile && !selectedFileRef.current?.id) {
+        setOpenFiles([firstFile]);
+        setActiveFile(firstFile);
+        selectedFileRef.current = firstFile;
+        setCode(firstFile.content || "");
+        codeRef.current = firstFile.content || "";
+      }
+
+    } catch (err) {
+      console.error("Failed loading files:", err);
+    }
+  }, [roomId, language, defaultContent]);
+
+  useEffect(() => {
     loadFiles();
+  }, [loadFiles]);
 
-  }, [roomId]);
+  // Listen for filesystem updates from watch service
+  useEffect(() => {
+    if (!roomId || wsStatus !== 'connected') return;
+
+    const unsub = wsService.subscribe(
+      `/topic/room/${roomId}/files/refresh`,
+      () => {
+        console.log('[Watcher] File system changed, reloading tree...');
+        loadFiles();
+      }
+    );
+
+    return () => unsub?.();
+  }, [roomId, wsStatus, loadFiles]);
 
 
   // =========================
@@ -1008,35 +1020,7 @@ const EditorWorkspace = () => {
   }, [roomId, user]);
 
 
-  // =========================
-  // Receive realtime code
-  // =========================
-  useEffect(() => {
-
-    if (!roomId) return;
-
-    const unsub = wsService.subscribe(
-      `/topic/room/${roomId}/code`,
-      (event) => {
-
-        setFiles(prev => recursiveUpdate(prev, event.fileId, { content: event.content }));
-        setOpenFiles(prev => prev.map(f => f.id === event.fileId ? { ...f, content: event.content } : f));
-
-        if (
-          activeFileRef.current?.id === event.fileId &&
-          event.senderEmail !== userRef.current?.email
-        ) {
-          // Do NOT call setCode(event.content) here! 
-          // Yjs and y-monaco are already handling the live text synchronization perfectly.
-          // Calling setCode here would overwrite the Monaco model and cause the cursor to jump.
-        }
-
-      }
-    );
-
-    return () => unsub?.();
-
-  }, [roomId]);
+  // Realtime code sync is managed exclusively via Yjs (y-monaco binding) and stateless WebSocket/Redis relays.
 
 
   // ── Resize handles ──
@@ -1095,13 +1079,6 @@ const EditorWorkspace = () => {
     setCode(value);
     setFiles(prev => recursiveUpdate(prev, activeFile.id, { content: value }));
     setOpenFiles(prev => prev.map(f => f.id === activeFile.id ? { ...f, content: value } : f));
-    // Broadcast change to all users in the room via WebSocket
-    wsService.publish(`/app/room/${roomId}/code`, {
-      fileId: activeFile?.id,
-      content: value,
-      senderEmail: user?.email,
-      username: user?.username,
-    });
   };
 
   const handleFileSelect = (file) => {

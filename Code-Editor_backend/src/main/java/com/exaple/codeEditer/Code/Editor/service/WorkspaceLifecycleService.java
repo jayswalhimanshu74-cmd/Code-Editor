@@ -21,39 +21,7 @@ public class WorkspaceLifecycleService {
     private final DockerWorkspaceService dockerWorkspaceService;
     private final WorkspaceNodeRegistry nodeRegistry;
 
-    @PostConstruct
-    public void recoverWorkspaces() {
-        log.info("Starting workspace recovery process in background...");
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                List<WorkspaceEntity> workspaces = workspaceRepository.findAll();
-
-                for (WorkspaceEntity ws : workspaces) {
-                    if (ws.getStatus() == WorkspaceStatus.RUNNING || ws.getStatus() == WorkspaceStatus.STARTING
-                            || ws.getStatus() == WorkspaceStatus.CREATING) {
-                        // Check if container is actually running
-                        boolean isRunning = dockerWorkspaceService.isContainerRunning(ws.getContainerId());
-                        if (isRunning) {
-                            ws.setStatus(WorkspaceStatus.RUNNING);
-                            ws.setLastSeen(LocalDateTime.now());
-                            log.info("Recovered running workspace: {}", ws.getId());
-                        } else {
-                            ws.setStatus(WorkspaceStatus.STOPPED);
-                            log.info("Marked workspace {} as STOPPED (container dead)", ws.getId());
-                        }
-                        workspaceRepository.save(ws);
-                    }
-                }
-
-                // Orphan cleanup
-                dockerWorkspaceService
-                        .cleanupOrphanedContainers(workspaces.stream().map(WorkspaceEntity::getContainerId).toList());
-            } catch (Throwable t) {
-                log.warn(
-                        "Warning: Workspace recovery failed. Is Docker Desktop running? Proceeding without workspace recovery.");
-            }
-        });
-    }
+    // Startup recovery is handled by WorkspaceStartupRecoveryJob to avoid resource race conditions during boot.
 
     public synchronized String startWorkspace(String roomId, String ownerId) {
         Optional<WorkspaceEntity> optionalWs = workspaceRepository.findById(roomId);

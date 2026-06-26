@@ -35,8 +35,7 @@ export const authService = {
     getMe: () =>
         api.get('/auth/me'),
 
-    // Not reliably usable synchronously with HttpOnly cookies,
-    // actual auth state depends on getting /auth/me successfully.
+ 
     isLoggedIn: () => true,
 
     forgotPassword: (email) =>
