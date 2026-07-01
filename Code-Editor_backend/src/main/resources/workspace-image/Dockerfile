@@ -31,31 +31,6 @@ RUN groupadd -g 1000 sandbox && useradd -u 1000 -g sandbox -m -s /bin/bash sandb
 # Configure permissions for workspace folder
 RUN mkdir -p /workspace && chown -R sandbox:sandbox /workspace
 
-# Install .NET SDK as root
-RUN apt-get update && apt-get install -y dotnet-sdk-8.0 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Switch to sandbox user for user-level tools
-USER sandbox
-ENV HOME=/home/sandbox
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/home/sandbox/.cargo/bin:${PATH}"
-
-# Install dotnet-script
-RUN dotnet tool install -g dotnet-script
-ENV PATH="/home/sandbox/.dotnet/tools:${PATH}"
-
-# Install Kotlin
-USER root
-RUN wget https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip \
-    && unzip kotlin-compiler-1.9.23.zip -d /opt/ \
-    && rm kotlin-compiler-1.9.23.zip \
-    && chown -R sandbox:sandbox /opt/kotlinc
-ENV PATH="/opt/kotlinc/bin:${PATH}"
-
 # Final workspace config
 WORKDIR /workspace
 USER sandbox
