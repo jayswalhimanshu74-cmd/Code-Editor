@@ -17,6 +17,7 @@ public class AuthorizationService {
     private final RoomMemberRepository roomMemberRepository;
 
     public boolean hasPermission(String userEmail, String workspaceId, String requiredPermission) {
+        log.debug("hasPermission - userEmail: {}, workspaceId: {}, requiredPermission: {}", userEmail, workspaceId, requiredPermission);
         UUID roomUUID;
         try {
             roomUUID = UUID.fromString(workspaceId);
@@ -27,10 +28,12 @@ public class AuthorizationService {
 
         Optional<RoomMember> memberOpt = roomMemberRepository.findByRoomIdAndUserEmail(roomUUID, userEmail);
         if (memberOpt.isEmpty()) {
+            log.debug("No room member found for room {} and user {}", roomUUID, userEmail);
             return false;
         }
 
         String role = memberOpt.get().getRole().toUpperCase();
+        log.debug("Member found. Role: {}", role);
 
         switch (requiredPermission.toUpperCase()) {
             case "USER_MANAGEMENT":

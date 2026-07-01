@@ -267,7 +267,7 @@ const Profile = () => {
                             {[
                                 { label: 'Edit Profile', icon: 'edit', to: '/settings', color: '#0070f3', bg: 'rgba(0,112,243,0.12)', glow: 'rgba(0,112,243,0.3)' },
                                 { label: 'History', icon: 'history', to: '/history', color: '#f472b6', bg: 'rgba(244,114,182,0.12)', glow: null },
-                                { label: 'Activity', icon: 'history_log', to: '/activity', color: '#4ade80', bg: 'rgba(74,222,128,0.12)', glow: null },
+                                { label: 'Activity', icon: 'history', to: '/activity', color: '#4ade80', bg: 'rgba(74,222,128,0.12)', glow: null },
                                 { label: 'My Rooms', icon: 'folder_open', to: '/dashboard', color: '#fb923c', bg: 'rgba(251,146,60,0.12)', glow: null },
                             ].map(action => (
                                 <Link key={action.label} to={action.to}

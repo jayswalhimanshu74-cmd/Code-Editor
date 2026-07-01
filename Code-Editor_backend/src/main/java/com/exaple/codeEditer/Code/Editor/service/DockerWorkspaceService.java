@@ -60,6 +60,31 @@ public class DockerWorkspaceService {
         activeWorkspaces.put(roomId, containerId);
     }
 
+    public void ensureBaseImageExists() {
+        try {
+            dockerClient.inspectImageCmd(BASE_IMAGE).exec();
+        } catch (Exception e) {
+            log.info("Building custom base image {}... this may take a few minutes.", BASE_IMAGE);
+            java.io.File dockerfileDir = new java.io.File(DOCKERFILE_PATH);
+            if (!dockerfileDir.exists()) {
+                throw new RuntimeException("Dockerfile directory not found at " + DOCKERFILE_PATH);
+            }
+            try {
+                dockerClient.buildImageCmd(dockerfileDir)
+                        .withTags(java.util.Collections.singleton(BASE_IMAGE))
+                        .start()
+                        .awaitCompletion();
+                log.info("Successfully built custom image {}", BASE_IMAGE);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Image build interrupted", ie);
+            } catch (Exception ex) {
+                log.error("Failed to build custom image {}", BASE_IMAGE, ex);
+                throw new RuntimeException("Failed to build custom image", ex);
+            }
+        }
+    }
+
     /**
      * Spins up an isolated Linux container for the workspace.
      * 
@@ -87,20 +112,7 @@ public class DockerWorkspaceService {
 
         try {
             // 1. Ensure image exists (build if necessary)
-            try {
-                dockerClient.inspectImageCmd(BASE_IMAGE).exec();
-            } catch (Exception e) {
-                log.info("Building custom base image {}... this may take a few minutes.", BASE_IMAGE);
-                java.io.File dockerfileDir = new java.io.File(DOCKERFILE_PATH);
-                if (!dockerfileDir.exists()) {
-                    throw new RuntimeException("Dockerfile directory not found at " + DOCKERFILE_PATH);
-                }
-                dockerClient.buildImageCmd(dockerfileDir)
-                        .withTags(java.util.Collections.singleton(BASE_IMAGE))
-                        .start()
-                        .awaitCompletion();
-                log.info("Successfully built custom image {}", BASE_IMAGE);
-            }
+            ensureBaseImageExists();
 
             // 2. Sync database files to host filesystem
             syncWorkspaceToHost(roomId);
@@ -385,6 +397,9 @@ public class DockerWorkspaceService {
         String safeCmd = "timeout -k 2s 14s bash -c '" + cmd.replace("'", "'\\''") + "'";
 
         try {
+            // 0. Ensure base image exists before launching container
+            ensureBaseImageExists();
+
             // 1. Create container
             com.github.dockerjava.api.command.CreateContainerResponse container = dockerClient
                     .createContainerCmd(BASE_IMAGE)
