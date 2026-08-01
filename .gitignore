@@ -19,6 +19,7 @@ take_screenshots.js
 *.zip
 Main.class
 Main.java
-*.json
 audit-evidence.md
 scratch/
+!vercel.json
+!frontend/vercel.json
