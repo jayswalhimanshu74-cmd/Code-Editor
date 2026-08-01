@@ -27,14 +27,17 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+            auditLogService.log("USER_REGISTER_FAILED", "USER", request.getEmail(), "Registration attempt failed: email already in use");
             throw new RuntimeException("Email already in use");
         }
         if (userRepository.existsByUsername(request.getUsername())) {
+            auditLogService.log("USER_REGISTER_FAILED", "USER", request.getUsername(), "Registration attempt failed: username already taken");
             throw new RuntimeException("Username already taken");
         }
 
@@ -45,25 +48,31 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+        auditLogService.log("USER_REGISTER", "USER", user.getEmail(), "Registration successful");
 
         return buildAuthResponse(user);
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        try {
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+            if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+                throw new BadCredentialsException("Invalid email or password");
+            }
 
+            // revoke old tokens before issuing new ones
+            refreshTokenRepository.revokeAllUserTokens(user);
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid email or password");
+            AuthResponse response = buildAuthResponse(user);
+            auditLogService.log("USER_LOGIN", "USER", user.getEmail(), "Login successful");
+            return response;
+        } catch (BadCredentialsException e) {
+            auditLogService.log("USER_LOGIN_FAILED", "USER", request.getEmail(), "Failed login attempt (bad credentials)");
+            throw e;
         }
-
-        // revoke old tokens before issuing new ones
-        refreshTokenRepository.revokeAllUserTokens(user);
-
-        return buildAuthResponse(user);
     }
 
     @Transactional
@@ -102,9 +111,11 @@ public class AuthService {
 
         // Revoke all refresh tokens
         refreshTokenRepository.deleteByUser(user);
+        auditLogService.log("USER_LOGOUT", "USER", email, "Logout successful");
     }
 
 
+    @Transactional(readOnly = true)
     public AuthResponse.UserDto getMe(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -123,6 +134,8 @@ public class AuthService {
             System.err.println("Failed to send email: " + e.getMessage());
         }
 
+        auditLogService.log("PASSWORD_RESET_REQUEST", "USER", email, "Password reset requested");
+
         System.out.println("=================================================");
         System.out.println("PASSWORD RESET TOKEN FOR " + email + ": " + token);
         System.out.println("=================================================");
@@ -132,6 +145,7 @@ public class AuthService {
     @Transactional
     public void resetPassword(String token, String newPassword) {
         if (!jwtService.isTokenValid(token)) {
+            auditLogService.log("PASSWORD_RESET_FAILED", "TOKEN", token, "Password reset failed (invalid or expired token)");
             throw new RuntimeException("Invalid or expired reset token");
         }
         String email = jwtService.extractEmail(token);
@@ -141,6 +155,7 @@ public class AuthService {
         userRepository.save(user);
         
         refreshTokenRepository.revokeAllUserTokens(user);
+        auditLogService.log("PASSWORD_RESET_SUCCESS", "USER", email, "Password reset successful");
     }
 
 

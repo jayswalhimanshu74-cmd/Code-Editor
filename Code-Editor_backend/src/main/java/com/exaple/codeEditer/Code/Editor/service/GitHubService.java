@@ -2,6 +2,8 @@ package com.exaple.codeEditer.Code.Editor.service;
 
 import com.exaple.codeEditer.Code.Editor.entity.User;
 import com.exaple.codeEditer.Code.Editor.repository.UserRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +13,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -88,6 +91,8 @@ public class GitHubService {
         return null;
     }
 
+    @CircuitBreaker(name = "githubService", fallbackMethod = "fallbackGetUserRepositories")
+    @Retry(name = "githubService", fallbackMethod = "fallbackGetUserRepositories")
     public List<Map<String, Object>> getUserRepositories(User user) {
         if (user.getGithubAccessToken() == null) {
             throw new RuntimeException("User has not connected a GitHub account");
@@ -106,8 +111,13 @@ public class GitHubService {
             return response.getBody();
         } catch (Exception e) {
             log.error("Failed to fetch repositories for user", e);
-            throw new RuntimeException("Failed to fetch repositories");
+            throw new RuntimeException("Failed to fetch repositories", e);
         }
+    }
+
+    public List<Map<String, Object>> fallbackGetUserRepositories(User user, Throwable throwable) {
+        log.error("GitHub API Circuit Breaker Fallback triggered for user {}: {}", user.getUsername(), throwable.getMessage());
+        return Collections.emptyList();
     }
     
     public void disconnectGitHub(User user) {

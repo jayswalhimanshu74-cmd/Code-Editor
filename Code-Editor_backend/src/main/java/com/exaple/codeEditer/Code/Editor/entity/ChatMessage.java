@@ -8,7 +8,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "chat_messages")
+@Table(
+    name = "chat_messages",
+    indexes = {
+        @Index(name = "idx_chat_messages_room_sent", columnList = "room_id, sent_at")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ChatMessage {
 
@@ -18,6 +23,7 @@ public class ChatMessage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)

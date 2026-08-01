@@ -3,13 +3,15 @@ package com.exaple.codeEditer.Code.Editor.service;
 import com.exaple.codeEditer.Code.Editor.entity.WorkspaceEntity;
 import com.exaple.codeEditer.Code.Editor.entity.WorkspaceStatus;
 import com.exaple.codeEditer.Code.Editor.repository.WorkspaceRepository;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,10 +20,9 @@ import java.util.Optional;
 public class WorkspaceLifecycleService {
 
     private final WorkspaceRepository workspaceRepository;
-    private final DockerWorkspaceService dockerWorkspaceService;
     private final WorkspaceNodeRegistry nodeRegistry;
 
-    // Startup recovery is handled by WorkspaceStartupRecoveryJob to avoid resource race conditions during boot.
+    private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
 
     public synchronized String startWorkspace(String roomId, String ownerId) {
         Optional<WorkspaceEntity> optionalWs = workspaceRepository.findById(roomId);
@@ -32,12 +33,11 @@ public class WorkspaceLifecycleService {
             if (ws.getStatus() == WorkspaceStatus.RUNNING) {
                 String owner = nodeRegistry.getOwner(roomId);
                 if (owner != null && !owner.equals(nodeRegistry.getNodeId())) {
-                    // Another node owns this and Redis says it's active. Trust it's running.
                     log.info("Workspace {} is running on remote node {}.", roomId, owner);
-                    return ws.getContainerId();
-                } else if (dockerWorkspaceService.isContainerRunning(ws.getContainerId())) {
-                    log.info("Workspace {} is already running on this node.", roomId);
-                    return ws.getContainerId();
+                    return "fs-" + roomId;
+                } else if (isWorkspaceDirectoryPresent(roomId)) {
+                    log.info("Workspace directory for {} is already active on this node.", roomId);
+                    return "fs-" + roomId;
                 }
             }
         } else {
@@ -50,15 +50,17 @@ public class WorkspaceLifecycleService {
             ws.setStatus(WorkspaceStatus.STARTING);
             workspaceRepository.save(ws);
 
-            String containerId = dockerWorkspaceService.provisionContainer(roomId);
+            ensureWorkspaceDirectoryExists(roomId);
+            String containerId = "fs-" + roomId;
 
             ws.setContainerId(containerId);
             ws.setStatus(WorkspaceStatus.RUNNING);
+            ws.setLastSeen(LocalDateTime.now());
             workspaceRepository.save(ws);
 
             nodeRegistry.registerOwnership(roomId);
 
-            log.info("Successfully started workspace {} with container {}", roomId, containerId);
+            log.info("Successfully initialized local workspace directory for room {}", roomId);
             return containerId;
 
         } catch (Exception e) {
@@ -72,7 +74,6 @@ public class WorkspaceLifecycleService {
     public void stopWorkspace(String roomId) {
         workspaceRepository.findById(roomId).ifPresent(ws -> {
             try {
-                dockerWorkspaceService.stopAndRemoveContainer(ws.getContainerId(), roomId);
                 ws.setStatus(WorkspaceStatus.STOPPED);
                 ws.setContainerId(null);
                 workspaceRepository.save(ws);
@@ -89,6 +90,18 @@ public class WorkspaceLifecycleService {
     public String getContainerId(String roomId) {
         return workspaceRepository.findById(roomId)
                 .map(WorkspaceEntity::getContainerId)
-                .orElse(null);
+                .orElse("fs-" + roomId);
+    }
+
+    private void ensureWorkspaceDirectoryExists(String roomId) throws Exception {
+        Path path = Paths.get(HOST_WORKSPACES_DIR, roomId);
+        if (!Files.exists(path)) {
+            Files.createDirectories(path);
+        }
+    }
+
+    private boolean isWorkspaceDirectoryPresent(String roomId) {
+        Path path = Paths.get(HOST_WORKSPACES_DIR, roomId);
+        return Files.exists(path) && Files.isDirectory(path);
     }
 }

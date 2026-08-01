@@ -18,6 +18,6 @@ public class TerminalWebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(terminalWebSocketHandler, "/ws/terminal")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins("http://localhost:5173", "http://localhost:8080", "https://lodging-october-standing-hospitality.trycloudflare.com");
     }
 }

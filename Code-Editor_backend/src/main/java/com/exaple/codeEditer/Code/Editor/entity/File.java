@@ -9,7 +9,14 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "files")
+@Table(
+    name = "files",
+    indexes = {
+        @Index(name = "idx_files_room_id", columnList = "room_id"),
+        @Index(name = "idx_files_parent_id", columnList = "parent_id"),
+        @Index(name = "idx_files_room_name_parent", columnList = "room_id, name, parent_id")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class File {
 

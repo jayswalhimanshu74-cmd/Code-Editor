@@ -41,7 +41,7 @@ public class ChatController {
         }
 
         return ResponseEntity.ok(
-                chatMessageRepository.findRecentByRoom(room)
+                chatMessageRepository.findRecentByRoom(room, org.springframework.data.domain.PageRequest.of(0, 50))
         );
     }
 }

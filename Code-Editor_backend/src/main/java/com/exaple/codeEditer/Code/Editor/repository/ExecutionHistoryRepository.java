@@ -19,6 +19,12 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
 
     Page<ExecutionHistory> findByRoomOrderByExecutedAtDesc(Room room, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query(
+        value = "select eh from ExecutionHistory eh join fetch eh.runBy join fetch eh.room where eh.room = :room order by eh.executedAt desc",
+        countQuery = "select count(eh) from ExecutionHistory eh where eh.room = :room"
+    )
+    Page<ExecutionHistory> findByRoomWithAssociations(@org.springframework.data.repository.query.Param("room") Room room, Pageable pageable);
+
     List<ExecutionHistory> findByStatusAndExecutedAtBefore(ExecutionHistory.ExecutionStatus status,
             LocalDateTime threshold);
 }

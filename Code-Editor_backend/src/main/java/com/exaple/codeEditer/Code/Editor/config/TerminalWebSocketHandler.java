@@ -1,10 +1,9 @@
 package com.exaple.codeEditer.Code.Editor.config;
 
-import com.exaple.codeEditer.Code.Editor.service.DockerWorkspaceService;
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.api.model.Frame;
-import com.github.dockerjava.core.command.ExecStartResultCallback;
+import com.exaple.codeEditer.Code.Editor.service.AuditLogService;
+import com.exaple.codeEditer.Code.Editor.service.AuthorizationService;
+import com.exaple.codeEditer.Code.Editor.service.BusinessMetricsService;
+import com.exaple.codeEditer.Code.Editor.service.PathSecurityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -12,10 +11,11 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.nio.charset.StandardCharsets;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,17 +24,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class TerminalWebSocketHandler extends TextWebSocketHandler {
 
-    private final DockerWorkspaceService dockerWorkspaceService;
-    private final com.exaple.codeEditer.Code.Editor.service.AuthorizationService authorizationService;
-    private final com.exaple.codeEditer.Code.Editor.service.AuditLogService auditLogService;
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private DockerClient dockerClient;
+    private final AuthorizationService authorizationService;
+    private final AuditLogService auditLogService;
+    private final PathSecurityService pathSecurityService;
+    private final BusinessMetricsService businessMetricsService;
 
-    // Map WebSocket Session ID to the PipedOutputStream for STDIN
-    private final Map<String, PipedOutputStream> sessionInputStreams = new ConcurrentHashMap<>();
-    // Map WebSocket Session ID to the Docker Exec ID for resizing
-    private final Map<String, String> sessionExecIds = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionRoomMap = new ConcurrentHashMap<>();
+    private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -45,144 +41,128 @@ public class TerminalWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // Extract roomId from query parameter (e.g. /ws/terminal?roomId=uuid)
         String query = session.getUri().getQuery();
         String roomId = null;
         String username = principal.getName();
-        String email = principal.getName();
 
         if (query != null) {
             String[] params = query.split("&");
             for (String param : params) {
                 if (param.startsWith("roomId=")) {
                     roomId = param.substring(7);
+                    break;
                 }
             }
         }
 
         if (roomId == null) {
-            session.close(CloseStatus.BAD_DATA.withReason("Missing roomId"));
+            session.close(CloseStatus.BAD_DATA.withReason("Missing roomId query parameter"));
             return;
         }
 
-        java.util.UUID roomUUID;
-        try {
-            roomUUID = java.util.UUID.fromString(roomId);
-        } catch (IllegalArgumentException e) {
-            session.close(CloseStatus.BAD_DATA.withReason("Invalid roomId format"));
+        if (!authorizationService.hasPermission(username, roomId, "TERMINAL_ACCESS")) {
+            log.warn("User {} attempted unauthorized terminal access to room {}", username, roomId);
+            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized workspace access"));
             return;
         }
 
-        if (!authorizationService.hasPermission(email, roomId, "TERMINAL_ACCESS")) {
-            log.warn("Unauthorized terminal connection attempt by user {} for room {}", email, roomId);
-            session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
-            return;
-        }
+        sessionRoomMap.put(session.getId(), roomId);
+        businessMetricsService.incrementTerminalSessions();
+        auditLogService.log("TERMINAL_CONNECT", "WORKSPACE", roomId, "Connected to terminal for workspace: " + roomId);
 
-        log.info("Terminal WebSocket connected for room: {}", roomId);
-        auditLogService.log("TERMINAL_ACCESS", "WORKSPACE", roomId, "Terminal connection established by user: " + email);
-
-        try {
-            // Ensure container is running
-            String containerId = dockerWorkspaceService.provisionContainer(roomId);
-
-            // Configure Git identity in the container
-            try {
-                ExecCreateCmdResponse configName = dockerClient.execCreateCmd(containerId)
-                        .withCmd("git", "config", "--global", "user.name", username)
-                        .exec();
-                dockerClient.execStartCmd(configName.getId()).exec(new ExecStartResultCallback()).awaitCompletion();
-
-                ExecCreateCmdResponse configEmail = dockerClient.execCreateCmd(containerId)
-                        .withCmd("git", "config", "--global", "user.email", email)
-                        .exec();
-                dockerClient.execStartCmd(configEmail.getId()).exec(new ExecStartResultCallback()).awaitCompletion();
-            } catch (Exception e) {
-                log.warn("Failed to set git config in container {}", containerId, e);
-            }
-
-            // Create an Exec instance for /bin/bash
-            ExecCreateCmdResponse exec = dockerClient.execCreateCmd(containerId)
-                    .withAttachStdout(true)
-                    .withAttachStderr(true)
-                    .withAttachStdin(true)
-                    .withTty(true) // Crucial for PTY colors/formatting
-                    .withCmd("/bin/bash")
-                    .exec();
-
-            String execId = exec.getId();
-            sessionExecIds.put(session.getId(), execId);
-
-            PipedInputStream in = new PipedInputStream();
-            PipedOutputStream out = new PipedOutputStream(in);
-            sessionInputStreams.put(session.getId(), out);
-
-            // Start the Exec instance
-            dockerClient.execStartCmd(execId)
-                    .withStdIn(in)
-                    .withTty(true)
-                    .exec(new ExecStartResultCallback() {
-                        @Override
-                        public void onNext(Frame item) {
-                            try {
-                                if (session.isOpen()) {
-                                    session.sendMessage(
-                                            new TextMessage(new String(item.getPayload(), StandardCharsets.UTF_8)));
-                                }
-                            } catch (IOException e) {
-                                log.error("Failed to send terminal output to websocket", e);
-                            }
-                            super.onNext(item);
-                        }
-                    });
-        } catch (Exception e) {
-            log.error("Docker terminal initialization failed", e);
-            session.sendMessage(new TextMessage(
-                    "\r\n\u001B[31m[!] Server Error: Could not connect to Docker Daemon.\u001B[0m\r\n\u001B[31m[!] Please ensure Docker Desktop is running on the host machine.\u001B[0m\r\n"));
-            session.close(CloseStatus.SERVER_ERROR);
-        }
+        String banner = """
+                \r\n\033[1;32m===================================================\033[0m
+                \033[1;36m  Welcome to HenceCode Workspace Pseudo-Terminal   \033[0m
+                \033[1;32m===================================================\033[0m
+                Type \033[1;33mhelp\033[0m to list available workspace commands.
+                \r\n$ \
+                """;
+        session.sendMessage(new TextMessage(banner));
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        PipedOutputStream out = sessionInputStreams.get(session.getId());
-        if (out != null) {
-            String payload = message.getPayload();
-            if (payload.startsWith("{\"type\":\"resize\"")) {
-                try {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    Map<String, Object> map = mapper.readValue(payload, Map.class);
-                    int cols = ((Number) map.get("cols")).intValue();
-                    int rows = ((Number) map.get("rows")).intValue();
-                    String execId = sessionExecIds.get(session.getId());
-                    if (execId != null) {
-                        dockerClient.resizeExecCmd(execId)
-                                .withSize(rows, cols)
-                                .exec();
-                        log.info("Resized terminal session {} (execId: {}) to {}x{}", session.getId(), execId, cols, rows);
-                    }
-                } catch (Exception e) {
-                    log.error("Failed to resize terminal for session {}", session.getId(), e);
-                }
-            } else {
-                out.write(payload.getBytes(StandardCharsets.UTF_8));
-                out.flush();
-            }
-        } else {
-            log.warn("No PipedOutputStream found for session {}", session.getId());
+        String input = message.getPayload() != null ? message.getPayload().trim() : "";
+        String roomId = sessionRoomMap.get(session.getId());
+
+        if (roomId == null) {
+            session.close(CloseStatus.SERVER_ERROR);
+            return;
         }
+
+        if (input.isEmpty()) {
+            session.sendMessage(new TextMessage("$ "));
+            return;
+        }
+
+        String response = processPseudoCommand(roomId, input);
+        session.sendMessage(new TextMessage(response + "\r\n$ "));
+    }
+
+    private String processPseudoCommand(String roomId, String input) {
+        String[] tokens = input.split("\\s+");
+        String cmd = tokens[0].toLowerCase();
+
+        Path workspacePath = Paths.get(HOST_WORKSPACES_DIR, roomId);
+
+        return switch (cmd) {
+            case "help" -> """
+                    Available Workspace Commands:
+                      help             - Show this help menu
+                      pwd              - Show workspace directory path
+                      ls               - List files in current workspace
+                      cat <file>       - Display contents of a file
+                      clear            - Clear terminal output
+                      status           - Display workspace engine status
+                      echo <text>      - Echo input text
+                    """;
+            case "pwd" -> "/workspace/" + roomId;
+            case "ls" -> {
+                try {
+                    File wsDir = workspacePath.toFile();
+                    if (!wsDir.exists()) {
+                        yield "Workspace directory empty.";
+                    }
+                    File[] files = wsDir.listFiles();
+                    if (files == null || files.length == 0) {
+                        yield "Workspace directory empty.";
+                    }
+                    StringBuilder sb = new StringBuilder();
+                    for (File f : files) {
+                        sb.append(f.isDirectory() ? "[DIR]  " : "[FILE] ").append(f.getName()).append("\r\n");
+                    }
+                    yield sb.toString().trim();
+                } catch (Exception e) {
+                    yield "Error listing directory: " + e.getMessage();
+                }
+            }
+            case "cat" -> {
+                if (tokens.length < 2) yield "Usage: cat <filename>";
+                String fileName = tokens[1];
+                if (!pathSecurityService.isNameSafe(fileName)) {
+                    yield "Security Error: Invalid filename or path traversal detected.";
+                }
+                File target = new File(workspacePath.toFile(), fileName);
+                if (!target.exists() || !target.isFile()) {
+                    yield "File not found: " + fileName;
+                }
+                try {
+                    yield Files.readString(target.toPath());
+                } catch (Exception e) {
+                    yield "Error reading file: " + e.getMessage();
+                }
+            }
+            case "clear" -> "\033[2J\033[H";
+            case "status" -> "HenceCode Cloud Terminal Engine: ONLINE (Render/Vercel Architecture)";
+            case "echo" -> input.length() > 5 ? input.substring(5) : "";
+            default -> "Command not found: " + cmd + ". Type 'help' for available commands.";
+        };
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        PipedOutputStream out = sessionInputStreams.remove(session.getId());
-        if (out != null) {
-            try {
-                out.close();
-            } catch (IOException ignored) {
-            }
+        if (sessionRoomMap.remove(session.getId()) != null) {
+            businessMetricsService.decrementTerminalSessions();
         }
-        sessionExecIds.remove(session.getId());
-        log.info("Terminal WebSocket disconnected: {}", session.getId());
     }
 }

@@ -77,7 +77,7 @@ public class ExecutionController {
         Pageable pageable = PageRequest.of(page, Math.min(size, 50)); // cap at 50
 
         Page<ExecutionHistory> histories =
-                 executionHistoryRepository.findByRoomOrderByExecutedAtDesc(room, pageable);
+                 executionHistoryRepository.findByRoomWithAssociations(room, pageable);
   
         Page<ExecutionHistoryDTO> dtos = histories.map(h -> ExecutionHistoryDTO.builder()
                 .id(h.getId())

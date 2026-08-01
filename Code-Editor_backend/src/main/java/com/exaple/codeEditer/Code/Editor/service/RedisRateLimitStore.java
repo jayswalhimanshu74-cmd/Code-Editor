@@ -14,14 +14,20 @@ public class RedisRateLimitStore {
 
     public boolean isAllowed(String key, int limit, long durationSeconds) {
         String redisKey = "ratelimit:" + key;
-        Long count = stringRedisTemplate.opsForValue().increment(redisKey);
+        String luaScript =
+                "local count = redis.call('INCR', KEYS[1]) " +
+                "if tonumber(count) == 1 then " +
+                "  redis.call('EXPIRE', KEYS[1], ARGV[1]) " +
+                "end " +
+                "return count";
+
+        org.springframework.data.redis.core.script.RedisScript<Long> script =
+                new org.springframework.data.redis.core.script.DefaultRedisScript<>(luaScript, Long.class);
+
+        Long count = stringRedisTemplate.execute(script, java.util.Collections.singletonList(redisKey), String.valueOf(durationSeconds));
 
         if (count == null) {
             return false;
-        }
-
-        if (count == 1) {
-            stringRedisTemplate.expire(redisKey, durationSeconds, TimeUnit.SECONDS);
         }
 
         return count <= limit;

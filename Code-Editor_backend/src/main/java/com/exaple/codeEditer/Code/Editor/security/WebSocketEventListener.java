@@ -31,9 +31,21 @@ public class WebSocketEventListener {
     public void handleWebSocketSubscribe(SessionSubscribeEvent event) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
         String dest = accessor.getDestination();
-        if (dest != null && (dest.contains("/topic/room/") || dest.contains("/topic/yjs/"))) {
-            String roomId = dest.substring(dest.lastIndexOf('/') + 1);
-            if (accessor.getUser() != null) {
+        if (dest != null) {
+            String roomId = null;
+            if (dest.contains("/topic/room/")) {
+                int idx = dest.indexOf("/topic/room/");
+                String sub = dest.substring(idx + "/topic/room/".length());
+                int slash = sub.indexOf('/');
+                roomId = slash == -1 ? sub : sub.substring(0, slash);
+            } else if (dest.contains("/topic/yjs/")) {
+                int idx = dest.indexOf("/topic/yjs/");
+                String sub = dest.substring(idx + "/topic/yjs/".length());
+                int slash = sub.indexOf('/');
+                roomId = slash == -1 ? sub : sub.substring(0, slash);
+            }
+
+            if (roomId != null && accessor.getUser() != null) {
                 String userEmail = accessor.getUser().getName();
                 String sessionId = accessor.getSessionId();
                 presenceService.registerUserPresence(roomId, userEmail);

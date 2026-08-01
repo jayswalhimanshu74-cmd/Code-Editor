@@ -2,19 +2,20 @@ package com.exaple.codeEditer.Code.Editor.service;
 
 import com.exaple.codeEditer.Code.Editor.entity.ExecutionHistory;
 import com.exaple.codeEditer.Code.Editor.repository.ExecutionHistoryRepository;
+import com.exaple.codeEditer.Code.Editor.service.execution.ExecutionProvider;
+import com.exaple.codeEditer.Code.Editor.service.execution.ExecutionResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @Service
 @RequiredArgsConstructor
@@ -23,159 +24,121 @@ public class ExecutionWorker {
 
     private final StringRedisTemplate redisTemplate;
     private final ExecutionHistoryRepository executionHistoryRepository;
-    private final DockerWorkspaceService dockerWorkspaceService;
+    private final ExecutionProvider executionProvider;
+    private final ObjectMapper objectMapper;
+    private final BusinessMetricsService businessMetricsService;
 
-    private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
+    private final java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(8);
+    private final java.util.concurrent.Semaphore executionSemaphore = new java.util.concurrent.Semaphore(8);
 
-    @Scheduled(fixedDelay = 500)
+    @Scheduled(fixedDelay = 200)
     public void processQueues() {
-        String queueKey = "execution:queue:global";
-        
-        // Pop the next execution
-        String execId = redisTemplate.opsForList().leftPop(queueKey);
-        if (execId == null) return;
-        
-        ExecutionHistory history = executionHistoryRepository.findById(UUID.fromString(execId)).orElse(null);
-        if (history == null || history.getStatus() != ExecutionHistory.ExecutionStatus.QUEUED) return;
-
-        String roomIdStr = history.getRoom().getId().toString();
-        String lockKey = "execution:lock:" + roomIdStr;
-
-        // Try to lock the room
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(20));
-        if (Boolean.TRUE.equals(acquired)) {
-            try {
-                processExecution(roomIdStr, history);
-            } finally {
-                try {
-                    redisTemplate.delete(lockKey);
-                } catch (Exception e) {
-                    // Ignore IllegalStateException during context shutdown
-                }
-            }
-        } else {
-            // Room is locked by another execution, re-enqueue at the end
-            redisTemplate.opsForList().rightPush(queueKey, execId);
+        if (!executionSemaphore.tryAcquire()) {
+            return;
         }
+
+        String queueKey = "execution:queue:global";
+        String execId = null;
+        try {
+            execId = redisTemplate.opsForList().leftPop(queueKey);
+            if (execId == null) {
+                executionSemaphore.release();
+                return;
+            }
+        } catch (Exception e) {
+            executionSemaphore.release();
+            log.error("Failed to pop from execution queue: {}", e.getMessage());
+            return;
+        }
+
+        final String finalExecId = execId;
+        executorService.submit(() -> {
+            try {
+                ExecutionHistory history = executionHistoryRepository.findById(UUID.fromString(finalExecId)).orElse(null);
+                if (history == null || history.getStatus() != ExecutionHistory.ExecutionStatus.QUEUED) {
+                    return;
+                }
+
+                log.info("Processing execution request {} via ExecutionProvider", finalExecId);
+                history.setStatus(ExecutionHistory.ExecutionStatus.RUNNING);
+                executionHistoryRepository.save(history);
+                publishStatusUpdate(history);
+
+                businessMetricsService.incrementExecutionTotal();
+                long startTime = System.currentTimeMillis();
+
+                ExecutionResult result = executionProvider.execute(
+                        history.getLanguage(),
+                        history.getSourceCode(),
+                        null
+                );
+
+                long duration = System.currentTimeMillis() - startTime;
+                businessMetricsService.recordExecutionTime(duration);
+
+                history.setStdout(result.getStdout());
+                history.setStderr(result.getStderr());
+                history.setExitCode(result.getExitCode());
+                history.setDurationMs(result.getDurationMs() != null ? result.getDurationMs().intValue() : (int) duration);
+
+                if (result.getStatus() == ExecutionResult.Status.SUCCESS) {
+                    history.setStatus(ExecutionHistory.ExecutionStatus.SUCCESS);
+                } else if (result.getStatus() == ExecutionResult.Status.TIMEOUT) {
+                    history.setStatus(ExecutionHistory.ExecutionStatus.TIMEOUT);
+                    businessMetricsService.incrementExecutionFailures();
+                } else {
+                    history.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
+                    businessMetricsService.incrementExecutionFailures();
+                }
+
+                executionHistoryRepository.save(history);
+                publishStatusUpdate(history);
+
+            } catch (Exception e) {
+                businessMetricsService.incrementExecutionFailures();
+                log.error("Execution error for {}", finalExecId, e);
+            } finally {
+                executionSemaphore.release();
+            }
+        });
     }
 
     @Scheduled(fixedDelay = 60000)
-    public void recoverStuckExecutions() {
-        // Find tasks stuck in RUNNING for more than 2 minutes (crashed nodes)
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(2);
-        List<ExecutionHistory> stuck = executionHistoryRepository.findByStatusAndExecutedAtBefore(
-            ExecutionHistory.ExecutionStatus.RUNNING, threshold);
-            
-        for (ExecutionHistory h : stuck) {
-            h.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
-            h.setStdout(h.getStdout() + "\n[System: Execution failed due to worker crash]");
-            executionHistoryRepository.save(h);
-            log.warn("Recovered stuck execution {}", h.getId());
+    public void cleanupTimedOutExecutions() {
+        try {
+            LocalDateTime timeoutThreshold = LocalDateTime.now().minusMinutes(2);
+            List<ExecutionHistory> hangingQueued = executionHistoryRepository.findByStatusAndExecutedAtBefore(
+                    ExecutionHistory.ExecutionStatus.QUEUED, timeoutThreshold
+            );
+
+            for (ExecutionHistory history : hangingQueued) {
+                log.warn("Execution request {} timed out in queue. Marking as TIMEOUT.", history.getId());
+                history.setStatus(ExecutionHistory.ExecutionStatus.TIMEOUT);
+                history.setStderr("[System Error]: Execution timed out in queue before processing.");
+                executionHistoryRepository.save(history);
+                publishStatusUpdate(history);
+            }
+        } catch (Exception e) {
+            log.error("Failed to execute cleanup job for hanging executions", e);
         }
     }
 
-    private void processExecution(String roomId, ExecutionHistory history) {
-        // 1. Mark as RUNNING
-        history.setStatus(ExecutionHistory.ExecutionStatus.RUNNING);
-        executionHistoryRepository.save(history);
-        String execId = history.getId().toString();
-        
-        long startTime = System.currentTimeMillis();
-        StringBuilder fullOutput = new StringBuilder();
-        
-        // 2. Generate command
-        String lang = history.getLanguage().toLowerCase();
-        String runCommand = "";
-        String filename = "main.txt";
-
-        switch (lang) {
-            case "java":
-                filename = "Main.java";
-                runCommand = "javac Main.java && java Main";
-                break;
-            case "nodejs":
-            case "javascript":
-            case "js":
-                filename = "index.js";
-                runCommand = "node index.js";
-                break;
-            case "typescript":
-            case "ts":
-                filename = "index.ts";
-                runCommand = "npx ts-node index.ts";
-                break;
-            case "python":
-            case "python3":
-            case "py":
-                filename = "main.py";
-                runCommand = "python3 main.py";
-                break;
-            case "cpp":
-            case "c++":
-                filename = "main.cpp";
-                runCommand = "g++ -o main main.cpp && ./main";
-                break;
-            case "c":
-                filename = "main.c";
-                runCommand = "gcc -o main main.c && ./main";
-                break;
-            case "go":
-            case "golang":
-                filename = "main.go";
-                runCommand = "go run main.go";
-                break;
-            case "rust":
-            case "rs":
-                filename = "main.rs";
-                runCommand = "rustc main.rs -o main && ./main";
-                break;
-            case "kotlin":
-            case "kt":
-                filename = "main.kt";
-                runCommand = "kotlinc main.kt -include-runtime -d main.jar && java -jar main.jar";
-                break;
-            case "csharp":
-            case "cs":
-                filename = "Program.cs";
-                runCommand = "dotnet-script Program.cs";
-                break;
-            default:
-                filename = "main.txt";
-                runCommand = "cat main.txt";
-                break;
-        }
-
+    private void publishStatusUpdate(ExecutionHistory history) {
+        if (history.getRoom() == null) return;
         try {
-            // Write source code to the shared workspace directory
-            Path execDir = Paths.get(HOST_WORKSPACES_DIR, roomId, ".exec", execId);
-            Files.createDirectories(execDir);
-            Path filePath = execDir.resolve(filename);
-            Files.writeString(filePath, history.getSourceCode());
+            String topic = "execution:events:" + history.getRoom().getId();
+            Map<String, Object> event = new HashMap<>();
+            event.put("id", history.getId());
+            event.put("status", history.getStatus().toString());
+            event.put("stdout", history.getStdout());
+            event.put("stderr", history.getStderr());
+            event.put("exitCode", history.getExitCode());
+            event.put("durationMs", history.getDurationMs());
 
-            // 3. Execute in ephemeral sandbox
-            String isolatedCommand = "cd .exec/" + execId + " && " + runCommand;
-            int exitCode = dockerWorkspaceService.runEphemeralSandbox(roomId, execId, isolatedCommand, fullOutput);
-            
-            history.setExitCode(exitCode);
-            if (exitCode == 0) {
-                history.setStatus(ExecutionHistory.ExecutionStatus.SUCCESS);
-            } else if (fullOutput.toString().contains("[Execution Timeout")) {
-                history.setStatus(ExecutionHistory.ExecutionStatus.TIMEOUT);
-            } else {
-                history.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
-            }
-            try { Files.walk(execDir).sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete()); }
-            catch (Exception ignored) {}
+            String message = objectMapper.writeValueAsString(event);
+            redisTemplate.convertAndSend(topic, message);
         } catch (Exception e) {
-            log.error("Execution failed for {}: {}", execId, e.getMessage());
-            history.setStatus(ExecutionHistory.ExecutionStatus.FAILED);
-            fullOutput.append("\n[Internal System Error: ").append(e.getMessage()).append("]");
+            log.error("Failed to publish status update event for {}", history.getId(), e);
         }
-
-        // 4. Save terminal state
-        long duration = System.currentTimeMillis() - startTime;
-        history.setDurationMs((int) duration);
-        history.setStdout(fullOutput.toString());
-        executionHistoryRepository.save(history);
     }
 }

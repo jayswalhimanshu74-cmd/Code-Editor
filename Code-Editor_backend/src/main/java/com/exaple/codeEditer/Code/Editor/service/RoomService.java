@@ -53,21 +53,27 @@ public class RoomService {
         return toRoomResponse(room);
     }
 
-    // ── Get all rooms user is member of ──────────────────
     @Transactional(readOnly = true)
     public List<RoomResponse> getMyRooms(String email) {
         User user = getUserByEmail(email);
 
-        return roomMemberRepository.findByUser(user)
-                .stream()
-                .map(rm -> toRoomResponse(rm.getRoom()))
+        List<Room> rooms = roomMemberRepository.findRoomsByUserWithOwner(user);
+        if (rooms.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<RoomMember> allMembers = roomMemberRepository.findByRoomInWithUser(rooms);
+        java.util.Map<UUID, java.util.List<RoomMember>> membersByRoomId = allMembers.stream()
+                .collect(java.util.stream.Collectors.groupingBy(rm -> rm.getRoom().getId()));
+
+        return rooms.stream()
+                .map(room -> toRoomResponse(room, membersByRoomId.getOrDefault(room.getId(), java.util.Collections.emptyList())))
                 .toList();
     }
 
-    // ── Get single room ───────────────────────────────────
     @Transactional(readOnly = true)
     public RoomResponse getRoom(UUID roomId, String email) {
-        Room room = roomRepository.findById(roomId)
+        Room room = roomRepository.findByIdWithOwner(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
         User user = getUserByEmail(email);
@@ -109,12 +115,11 @@ public class RoomService {
         return toRoomResponse(room);
     }
 
-    // ── Delete room (owner only) ──────────────────────────
     @Transactional
     public void deleteRoom(UUID roomId, String email) {
         User user = getUserByEmail(email);
 
-        Room room = roomRepository.findById(roomId)
+        Room room = roomRepository.findByIdWithOwner(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
         if (!room.getOwner().getId().equals(user.getId())) {
@@ -150,9 +155,12 @@ public class RoomService {
     }
 
     @Transactional(readOnly = true)
-    private RoomResponse toRoomResponse(Room room) {
-        List<RoomMember> members = roomMemberRepository.findByRoom(room);
+    public RoomResponse toRoomResponse(Room room) {
+        List<RoomMember> members = roomMemberRepository.findByRoomWithUser(room);
+        return toRoomResponse(room, members);
+    }
 
+    private RoomResponse toRoomResponse(Room room, List<RoomMember> members) {
         return RoomResponse.builder()
                 .id(room.getId())
                 .name(room.getName())

@@ -4,6 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
+@Table(
+    name = "workspace_port",
+    indexes = {
+        @Index(name = "idx_workspace_port_workspace_id", columnList = "workspaceId")
+    }
+)
 @Data
 public class WorkspacePort {
 

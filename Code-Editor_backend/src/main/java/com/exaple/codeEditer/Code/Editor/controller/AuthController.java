@@ -4,6 +4,7 @@ import com.exaple.codeEditer.Code.Editor.dto.AuthResponse;
 import com.exaple.codeEditer.Code.Editor.dto.LoginRequest;
 import com.exaple.codeEditer.Code.Editor.dto.RefreshTokenRequest;
 import com.exaple.codeEditer.Code.Editor.dto.RegisterRequest;
+import com.exaple.codeEditer.Code.Editor.security.JwtTokenBlacklistService;
 import com.exaple.codeEditer.Code.Editor.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
 
-
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
@@ -25,6 +25,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final com.exaple.codeEditer.Code.Editor.service.RateLimitService rateLimitService;
+    private final JwtTokenBlacklistService jwtTokenBlacklistService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
@@ -58,14 +59,35 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request) {
         if (userDetails != null) {
             authService.logout(userDetails.getUsername());
         }
+
+        // Extract and blacklist token
+        String jwt = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (jwt == null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+            }
+        }
+        if (jwt != null) {
+            jwtTokenBlacklistService.blacklistToken(jwt, 900);
+        }
+
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("None").build();
+                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("Lax").build();
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("None").build();
+                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("Lax").build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
@@ -75,9 +97,9 @@ public class AuthController {
 
     private ResponseEntity<AuthResponse> buildCookieResponse(AuthResponse authResponse) {
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", authResponse.getAccessToken())
-                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("None").build(); // 15 mins
+                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("Lax").build(); // 15 mins
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", authResponse.getRefreshToken())
-                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("None").build(); // 7 days
+                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("Lax").build(); // 7 days
 
         // Remove tokens from JSON body
         authResponse.setAccessToken(null);
@@ -142,5 +164,4 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
-
 }

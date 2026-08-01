@@ -18,7 +18,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     // existing methods — keep whatever was already here
     List<ChatMessage> findByRoom(Room room);
 
-    // new method — uses @Query so field name doesn't matter
-    @Query("SELECT c FROM ChatMessage c WHERE c.room = :room ORDER BY c.sentAt ASC LIMIT 50")
-    List<ChatMessage> findRecentByRoom(@Param("room") Room room);
+    // new method — uses @Query with FETCH JOIN and Pageable parameters
+    @Query("SELECT c FROM ChatMessage c JOIN FETCH c.sender WHERE c.room = :room ORDER BY c.sentAt ASC")
+    List<ChatMessage> findRecentByRoom(@org.springframework.data.repository.query.Param("room") Room room, org.springframework.data.domain.Pageable pageable);
 }

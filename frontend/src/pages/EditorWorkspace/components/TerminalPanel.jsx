@@ -79,7 +79,7 @@ const TerminalPanel = ({ roomId }) => {
         ws.onopen = () => {
             setConnected(true);
             term.reset();
-            term.writeln('\x1b[32m[✓] Connected to Cloud IDE Container Workspace\x1b[0m');
+            term.writeln('\x1b[32m[✓] Connected to HenceCode Workspace Terminal\x1b[0m');
             // Send initial size
             try {
                 ws.send(JSON.stringify({

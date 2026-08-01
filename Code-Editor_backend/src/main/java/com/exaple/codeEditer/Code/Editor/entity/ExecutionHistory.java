@@ -10,7 +10,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "execution_history")
+@Table(
+    name = "execution_history",
+    indexes = {
+        @Index(name = "idx_exec_hist_room_executed", columnList = "room_id, executed_at"),
+        @Index(name = "idx_exec_hist_run_by", columnList = "run_by")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

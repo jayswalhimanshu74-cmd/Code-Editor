@@ -8,7 +8,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "code_snapshots")
+@Table(
+    name = "code_snapshots",
+    indexes = {
+        @Index(name = "idx_code_snapshots_file_id", columnList = "file_id"),
+        @Index(name = "idx_code_snapshots_saved_by", columnList = "saved_by")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CodeSnapshot {
 

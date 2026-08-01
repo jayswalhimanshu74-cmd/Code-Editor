@@ -4,9 +4,14 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
-@Table(name = "workspace_roles", uniqueConstraints = {
+@Table(name = "workspace_roles", 
+    uniqueConstraints = {
         @UniqueConstraint(columnNames = {"workspace_id", "user_email"})
-})
+    },
+    indexes = {
+        @Index(name = "idx_workspace_roles_email", columnList = "user_email")
+    }
+)
 @Data
 public class WorkspaceRoleEntity {
 

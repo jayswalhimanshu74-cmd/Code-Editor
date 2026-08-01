@@ -19,10 +19,37 @@ public class AllowedCommandPolicy {
         if (baseCommand == null || baseCommand.isBlank()) {
             return false;
         }
-        
-        String cleanCmd = baseCommand.trim().toLowerCase().split("\\s+")[0];
-        
-        // Block dangerous system-altering binaries
-        return !BLOCKED_COMMANDS.contains(cleanCmd);
+
+        // Block command injection via backticks or command substitution
+        if (baseCommand.contains("`") || baseCommand.contains("$(")) {
+            return false;
+        }
+
+        // Split by shell command chain operators: ;, &&, ||, |, &, newline, carriage return
+        String[] subCommands = baseCommand.split(";|&&|\\|\\||\\||&|\\n|\\r");
+        for (String subCmd : subCommands) {
+            String trimmedSub = subCmd.trim();
+            if (trimmedSub.isEmpty()) {
+                continue;
+            }
+
+            // Extract the first word (binary name)
+            String cleanCmd = trimmedSub.split("\\s+")[0].toLowerCase();
+
+            // Strip path prefixes (e.g., ./reboot or /sbin/reboot)
+            if (cleanCmd.startsWith("./")) {
+                cleanCmd = cleanCmd.substring(2);
+            }
+            int lastSlash = cleanCmd.lastIndexOf('/');
+            if (lastSlash != -1) {
+                cleanCmd = cleanCmd.substring(lastSlash + 1);
+            }
+
+            if (BLOCKED_COMMANDS.contains(cleanCmd)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

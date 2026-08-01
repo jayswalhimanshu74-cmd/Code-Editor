@@ -96,7 +96,7 @@ const MetricsPanel = ({ roomId }) => {
                 <div className="mt-4 p-3 rounded-lg bg-[#0070f3]/5 border border-[#0070f3]/15 flex gap-2 items-start">
                     <span className="material-symbols-outlined text-[14px] text-[#0070f3] flex-shrink-0 mt-0.5">info</span>
                     <p className="text-[10px] text-white/50 leading-relaxed">
-                        Metrics reflect the isolated Docker container running your code. Heavy processes (like infinite loops) will increase CPU usage rapidly.
+                        Metrics reflect the isolated workspace running your code. Heavy processes (like infinite loops) will increase CPU usage rapidly.
                     </p>
                 </div>
 

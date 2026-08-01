@@ -37,9 +37,22 @@ public class FileService {
         Room room = getRoom(roomId);
         checkMembership(room, email);
 
-        return fileRepository.findByRoomAndParentIsNull(room)
-                .stream()
-                .map(this::toFileResponseWithChildren)
+        List<File> allFiles = fileRepository.findByRoom(room);
+
+        // Group files by parent ID
+        java.util.Map<UUID, java.util.List<File>> childrenByParentId = new java.util.HashMap<>();
+        java.util.List<File> rootFiles = new java.util.ArrayList<>();
+
+        for (File file : allFiles) {
+            if (file.getParent() == null) {
+                rootFiles.add(file);
+            } else {
+                childrenByParentId.computeIfAbsent(file.getParent().getId(), k -> new java.util.ArrayList<>()).add(file);
+            }
+        }
+
+        return rootFiles.stream()
+                .map(file -> toFileResponseWithInMemoryChildren(file, childrenByParentId))
                 .toList();
     }
 
@@ -141,13 +154,13 @@ public class FileService {
         }
     }
 
-    private FileResponse toFileResponseWithChildren(File file) {
+    private FileResponse toFileResponseWithInMemoryChildren(File file, java.util.Map<UUID, java.util.List<File>> childrenByParentId) {
         FileResponse response = toFileResponse(file);
 
         if (Boolean.TRUE.equals(file.getIsFolder())) {
-            List<File> children = fileRepository.findByParent(file);
+            java.util.List<File> children = childrenByParentId.getOrDefault(file.getId(), java.util.Collections.emptyList());
             response.setChildren(children.stream()
-                    .map(this::toFileResponseWithChildren)
+                    .map(child -> toFileResponseWithInMemoryChildren(child, childrenByParentId))
                     .toList());
         }
 

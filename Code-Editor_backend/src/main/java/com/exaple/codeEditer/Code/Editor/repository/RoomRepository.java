@@ -15,4 +15,6 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
     List<Room> findByOwner(User owner);
     boolean existsByInviteCode(String inviteCode);
 
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM Room r JOIN FETCH r.owner WHERE r.id = :id")
+    Optional<Room> findByIdWithOwner(@org.springframework.data.repository.query.Param("id") UUID id);
 }

@@ -174,7 +174,7 @@ const AdminDashboard = () => {
                     </div>
                 ))}
 
-                {chartCard('Active Docker Containers', 'view_in_ar', '#60a5fa', (
+                {chartCard('Active Workspaces', 'view_in_ar', '#60a5fa', (
                     <div className="h-[260px] w-full min-w-0 relative">
                         <ResponsiveContainer width="99%" height="100%">
                             <BarChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -209,12 +209,12 @@ const AdminDashboard = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                     <div className="p-5 flex flex-col gap-1 transition-colors hover:bg-white/5">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Docker CPU Cores</span>
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">JVM CPU Cores</span>
                         <span className="text-[20px] font-black" style={{ color: '#c084fc' }}>{metrics.hostTotalCpuCores}</span>
                     </div>
                     <div className="p-5 flex flex-col gap-1 transition-colors hover:bg-white/5">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Raw Containers</span>
-                        <span className="text-[20px] font-black" style={{ color: '#60a5fa' }}>{metrics.dockerContainersRunning}</span>
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Active Workspaces</span>
+                        <span className="text-[20px] font-black" style={{ color: '#60a5fa' }}>{metrics.activeWorkspaces}</span>
                     </div>
                     <div className="p-5 flex flex-col gap-1 transition-colors hover:bg-white/5">
                         <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Redis Memory</span>

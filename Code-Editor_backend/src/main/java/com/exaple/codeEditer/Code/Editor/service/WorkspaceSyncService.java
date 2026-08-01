@@ -32,6 +32,10 @@ public class WorkspaceSyncService {
     private final Map<String, WatchTask> activeTasks = new ConcurrentHashMap<>();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private WorkspaceSyncService self;
+
     public synchronized void startSyncing(String roomId) {
         if (activeTasks.containsKey(roomId)) {
             return;
@@ -197,17 +201,25 @@ public class WorkspaceSyncService {
             try {
                 if (!Files.exists(filePath) || Files.isDirectory(filePath)) return;
 
-                String content = Files.readString(filePath, StandardCharsets.UTF_8);
+                // Protect against symlink attacks pointing outside workspace
+                Path realPath = filePath.toRealPath();
+                Path realRoot = rootPath.toRealPath();
+                if (!realPath.startsWith(realRoot)) {
+                    log.warn("Security Alert: Symlink path escape attempt detected for file: {}", filePath);
+                    return;
+                }
+
+                String content = Files.readString(realPath, StandardCharsets.UTF_8);
                 String currentHash = getMD5Hash(content);
 
-                String relPath = rootPath.relativize(filePath).toString().replace("\\", "/");
+                String relPath = realRoot.relativize(realPath).toString().replace("\\", "/");
                 String registeredHash = selfWrittenFileHashes.get(relPath);
                 if (registeredHash != null && registeredHash.equals(currentHash)) {
                     log.debug("Skipping self-written file edit for loop prevention: {}", relPath);
                     return;
                 }
 
-                updateDatabaseFileContent(roomId, relPath, content);
+                self.updateDatabaseFileContent(roomId, relPath, content);
 
             } catch (Exception e) {
                 log.error("Failed to sync file to database: {}", filePath, e);
@@ -216,9 +228,15 @@ public class WorkspaceSyncService {
 
         private void syncDirectoryToDatabase(String roomId, Path dirPath, boolean isDelete) {
             try {
-                String relPath = rootPath.relativize(dirPath).toString().replace("\\", "/");
                 if (!isDelete) {
-                    createDatabaseFolder(roomId, relPath);
+                    Path realPath = dirPath.toRealPath();
+                    Path realRoot = rootPath.toRealPath();
+                    if (!realPath.startsWith(realRoot)) {
+                        log.warn("Security Alert: Symlink path escape attempt detected for directory: {}", dirPath);
+                        return;
+                    }
+                    String relPath = realRoot.relativize(realPath).toString().replace("\\", "/");
+                    self.createDatabaseFolder(roomId, relPath);
                 }
             } catch (Exception e) {
                 log.error("Failed to sync directory to database: {}", dirPath, e);
@@ -227,8 +245,14 @@ public class WorkspaceSyncService {
 
         private void syncDeletionToDatabase(String roomId, Path filePath) {
             try {
-                String relPath = rootPath.relativize(filePath).toString().replace("\\", "/");
-                deleteDatabaseFile(roomId, relPath);
+                Path normalizedPath = filePath.toAbsolutePath().normalize();
+                Path normalizedRoot = rootPath.toAbsolutePath().normalize();
+                if (!normalizedPath.startsWith(normalizedRoot)) {
+                    log.warn("Security Alert: Deletion path escape attempt detected: {}", filePath);
+                    return;
+                }
+                String relPath = normalizedRoot.relativize(normalizedPath).toString().replace("\\", "/");
+                self.deleteDatabaseFile(roomId, relPath);
             } catch (Exception e) {
                 log.error("Failed to sync file deletion to database: {}", filePath, e);
             }
@@ -393,6 +417,19 @@ public class WorkspaceSyncService {
             log.info("Successfully synced database file to disk: {}", relativePath);
         } catch (Exception e) {
             log.error("Failed to write database file to disk path {}", filePath, e);
+        }
+    }
+
+    @jakarta.annotation.PreDestroy
+    public void cleanup() {
+        log.info("Shutting down WorkspaceSyncService executor service...");
+        executorService.shutdownNow();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("WorkspaceSyncService executor service did not terminate in time.");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }

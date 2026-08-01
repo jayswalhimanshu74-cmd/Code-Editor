@@ -55,7 +55,7 @@ public class FileController {
     public ResponseEntity<FileResponse> updateFile(
             @PathVariable UUID roomId,
             @PathVariable UUID fileId,
-            @RequestBody UpdateFileRequest request,
+            @Valid @RequestBody UpdateFileRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(
                 fileService.updateFile(

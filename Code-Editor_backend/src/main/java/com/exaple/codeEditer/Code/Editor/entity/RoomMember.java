@@ -10,7 +10,10 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "room_members",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"room_id", "user_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"room_id", "user_id"}),
+        indexes = {
+            @Index(name = "idx_room_members_user_id", columnList = "user_id")
+        }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class RoomMember {

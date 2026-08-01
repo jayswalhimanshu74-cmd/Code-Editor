@@ -35,7 +35,6 @@ public class WorkspaceSnapshotService {
     private final WorkspacePortRepository workspacePortRepository;
     private final SnapshotStorageService storageService;
     private final SnapshotRestoreService restoreService;
-    private final DockerWorkspaceService dockerWorkspaceService;
     private final ObjectMapper objectMapper;
 
     private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
@@ -50,13 +49,14 @@ public class WorkspaceSnapshotService {
         String snapshotId = UUID.randomUUID().toString();
         String archiveName = snapshotId + ".zip";
 
-        // Ensure host files match DB
-        dockerWorkspaceService.syncWorkspaceToHost(workspaceId);
-
         Path archivePath = Paths.get(HOST_SNAPSHOTS_DIR, archiveName);
         Path sourcePath = Paths.get(HOST_WORKSPACES_DIR, workspaceId);
 
         try {
+            if (!Files.exists(sourcePath)) {
+                Files.createDirectories(sourcePath);
+            }
+
             // Zip files
             storageService.zipDirectory(sourcePath, archivePath);
 

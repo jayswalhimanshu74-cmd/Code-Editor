@@ -14,7 +14,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "rooms")
+@Table(
+    name = "rooms",
+    indexes = {
+        @Index(name = "idx_rooms_owner_id", columnList = "owner_id")
+    }
+)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Builder
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
@@ -36,7 +41,7 @@ public class Room {
     @Column(name = "invite_code", nullable = false, unique = true, length = 12)
     private String inviteCode;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 

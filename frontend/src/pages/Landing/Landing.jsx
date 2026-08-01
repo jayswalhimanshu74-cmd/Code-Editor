@@ -55,7 +55,7 @@ const Landing = () => {
           </h1>
 
           <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mb-8 leading-relaxed">
-            The next-generation collaborative IDE built for speed. Experience millisecond sync latency, isolated container runtimes, and instant browser-based workspace sharing.
+            The next-generation collaborative IDE built for speed. Experience millisecond sync latency, isolated workspace environments, and instant browser-based workspace sharing.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 z-10">
