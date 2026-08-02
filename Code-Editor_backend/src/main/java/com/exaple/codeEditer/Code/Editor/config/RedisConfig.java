@@ -135,7 +135,7 @@ public class RedisConfig {
 
         LettuceClientConfiguration clientConfig = builder.build();
         LettuceConnectionFactory factory = new LettuceConnectionFactory(serverConfig, clientConfig);
-        factory.setValidateConnection(true);
+        factory.setValidateConnection(false);
         return factory;
     }
 
