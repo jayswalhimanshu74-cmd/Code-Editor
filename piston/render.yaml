@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: hencecode-piston
+    runtime: docker
+    dockerfilePath: ./piston/Dockerfile
+    dockerContext: ./piston
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: "20000"
+      - key: PISTON_BIND
+        value: "0.0.0.0:20000"
+      - key: PISTON_RUNTIMES_PATH
+        value: "/piston/packages"
+      - key: PISTON_TMP_PATH
+        value: "/tmp/piston"
+      - key: MAX_EXECUTION_TIME
+        value: "10000"
+      - key: MAX_MEMORY
+        value: "512000000"
+    healthCheckPath: /api/v2/runtimes

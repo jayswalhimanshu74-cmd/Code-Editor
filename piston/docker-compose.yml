@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  piston:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hencecode-piston:latest
+    container_name: hencecode-piston
+    restart: unless-stopped
+    ports:
+      - "20000:20000"
+    environment:
+      - PORT=20000
+      - PISTON_BIND=0.0.0.0:20000
+      - PISTON_RUNTIMES_PATH=/piston/packages
+      - PISTON_TMP_PATH=/tmp/piston
+      - MAX_EXECUTION_TIME=10000
+      - MAX_MEMORY=512000000
+    tmpfs:
+      - /tmp/piston:exec,nosuid,size=256M
+    volumes:
+      - piston-packages:/piston/packages
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:20000/api/v2/runtimes', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  piston-packages:
+    driver: local
