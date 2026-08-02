@@ -29,7 +29,15 @@ export const authService = {
     },
 
     refresh: async () => {
-        return await api.post('/auth/refresh');
+        const refreshToken = localStorage.getItem('refreshToken');
+        const response = await api.post('/auth/refresh', { refreshToken });
+        if (response?.data?.accessToken) {
+            localStorage.setItem('accessToken', response.data.accessToken);
+        }
+        if (response?.data?.refreshToken) {
+            localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+        return response;
     },
 
     getMe: () =>

@@ -48,12 +48,28 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
-        if (refreshToken == null) {
+    public ResponseEntity<AuthResponse> refresh(
+            @RequestBody(required = false) RefreshTokenRequest requestBody,
+            @CookieValue(name = "refreshToken", required = false) String cookieRefreshToken,
+            HttpServletRequest httpRequest) {
+
+        String tokenToUse = cookieRefreshToken;
+        if ((tokenToUse == null || tokenToUse.isBlank()) && requestBody != null) {
+            tokenToUse = requestBody.getRefreshToken();
+        }
+        if (tokenToUse == null || tokenToUse.isBlank()) {
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                tokenToUse = authHeader.substring(7);
+            }
+        }
+
+        if (tokenToUse == null || tokenToUse.isBlank()) {
             return ResponseEntity.status(401).build();
         }
+
         RefreshTokenRequest request = new RefreshTokenRequest();
-        request.setRefreshToken(refreshToken);
+        request.setRefreshToken(tokenToUse);
         AuthResponse response = authService.refresh(request);
         return buildCookieResponse(response);
     }
