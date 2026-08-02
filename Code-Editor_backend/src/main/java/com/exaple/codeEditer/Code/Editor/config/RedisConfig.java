@@ -91,7 +91,7 @@ public class RedisConfig {
             if (uri.getUsername() != null && !uri.getUsername().isBlank()) {
                 serverConfig.setUsername(uri.getUsername());
             }
-            if (uri.isSsl() || uri.getHost().contains("upstash.io")) {
+            if (uri.isSsl() || (uri.getHost() != null && uri.getHost().contains("upstash.io"))) {
                 useSsl = true;
             }
         } else {
@@ -101,7 +101,7 @@ public class RedisConfig {
             if (redisPassword != null && !redisPassword.isBlank()) {
                 serverConfig.setPassword(RedisPassword.of(redisPassword));
             }
-            if (redisHost.contains("upstash.io")) {
+            if (redisHost != null && redisHost.contains("upstash.io")) {
                 useSsl = true;
             }
         }
