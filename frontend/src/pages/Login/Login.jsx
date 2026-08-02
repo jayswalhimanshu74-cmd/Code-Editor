@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { authService } from '../../api/authService';
 import { wsService } from '../../api/websocketService';
+import { getBackendUrl } from '../../api/axios';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,8 +31,7 @@ const Login = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    window.location.href = `${backendUrl}/oauth2/authorization/${provider}`;
+    window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
   };
 
   const handleForgotSubmit = async (e) => {

@@ -2,8 +2,16 @@ import axios from 'axios';
 import { authService } from '../api/authService';
 import { wsService } from './websocketService';
 
+export const getBackendUrl = () => {
+    let url = import.meta.env.VITE_API_URL;
+    if (!url || url === 'undefined' || (url.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+        url = 'https://hencecode-backend.onrender.com';
+    }
+    return url.replace(/\/$/, '');
+};
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL + '/api',
+    baseURL: getBackendUrl() + '/api',
     withCredentials: true,
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { getBackendUrl } from '../../api/axios';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -49,8 +50,7 @@ const Register = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    window.location.href = `${backendUrl}/oauth2/authorization/${provider}`;
+    window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
   };
 
   const displayError = localError || error;
