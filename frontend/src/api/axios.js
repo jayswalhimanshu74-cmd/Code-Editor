@@ -7,7 +7,17 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Remove request interceptor since cookies are automatically sent
+// ✅ Attach Bearer token from localStorage for cross-domain requests
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
 
 
 // ✅ Auto-refresh on 401

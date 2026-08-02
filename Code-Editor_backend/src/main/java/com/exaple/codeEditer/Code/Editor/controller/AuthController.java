@@ -96,14 +96,13 @@ public class AuthController {
     }
 
     private ResponseEntity<AuthResponse> buildCookieResponse(AuthResponse authResponse) {
-        ResponseCookie accessCookie = ResponseCookie.from("accessToken", authResponse.getAccessToken())
-                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("Lax").build(); // 15 mins
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", authResponse.getRefreshToken())
-                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("Lax").build(); // 7 days
+        String accessToken = authResponse.getAccessToken();
+        String refreshToken = authResponse.getRefreshToken();
 
-        // Remove tokens from JSON body
-        authResponse.setAccessToken(null);
-        authResponse.setRefreshToken(null);
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken != null ? accessToken : "")
+                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("None").build();
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken != null ? refreshToken : "")
+                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("None").build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())

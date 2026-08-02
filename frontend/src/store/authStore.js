@@ -14,7 +14,13 @@ const useAuthStore = create(
             register: async (username, email, password) => {
                 set({ isLoading: true, error: null });
                 try {
-                    await api.post('/auth/register', { username, email, password });
+                    const { data } = await api.post('/auth/register', { username, email, password });
+                    if (data?.accessToken) {
+                        localStorage.setItem('accessToken', data.accessToken);
+                    }
+                    if (data?.refreshToken) {
+                        localStorage.setItem('refreshToken', data.refreshToken);
+                    }
                     set({ isLoading: false });
                     return true;
                 } catch (err) {
@@ -27,6 +33,13 @@ const useAuthStore = create(
                 set({ isLoading: true, error: null });
                 try {
                     const { data } = await api.post('/auth/login', { email, password });
+
+                    if (data?.accessToken) {
+                        localStorage.setItem('accessToken', data.accessToken);
+                    }
+                    if (data?.refreshToken) {
+                        localStorage.setItem('refreshToken', data.refreshToken);
+                    }
 
                     // ✅ Set user immediately from login response
                     set({
@@ -60,6 +73,8 @@ const useAuthStore = create(
                 } catch (_) {
                     // still clear state even if API fails
                 } finally {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
                     const { wsService } = await import('../api/websocketService');
                     wsService.disconnect();
                     set({ user: null, isAuthenticated: false, error: null, isCheckingAuth: false });
