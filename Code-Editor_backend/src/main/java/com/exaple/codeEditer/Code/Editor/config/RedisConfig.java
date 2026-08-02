@@ -195,11 +195,21 @@ public class RedisConfig {
             ChannelTopic topic,
             Executor redisListenerExecutor) {
 
-        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer() {
+            @Override
+            public void start() {
+                try {
+                    super.start();
+                } catch (Exception e) {
+                    log.warn("RedisMessageListenerContainer start deferred due to connection issue: {}. Auto-recovery active.", e.getMessage());
+                }
+            }
+        };
         container.setConnectionFactory(connectionFactory);
         container.setTaskExecutor(redisListenerExecutor);
         container.addMessageListener(messageListener, topic);
-        container.setErrorHandler(e -> log.error("Redis Listener error: {}", e.getMessage(), e));
+        container.setRecoveryInterval(5000L);
+        container.setErrorHandler(e -> log.error("Redis Listener error: {}", e.getMessage()));
         return container;
     }
 }
