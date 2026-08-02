@@ -3,7 +3,6 @@ Code-Editor_backend/.idea/
 .vscode/
 frontend/node_modules/
 node_modules/
-.github/
 design/
 .github.zip
 code-editor.zip
@@ -21,5 +20,10 @@ Main.class
 Main.java
 audit-evidence.md
 scratch/
+create_room.json
+register.json
+register_b.json
+test_exec.json
+test_fork_bomb.json
 !vercel.json
 !frontend/vercel.json

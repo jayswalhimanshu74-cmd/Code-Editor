@@ -22,6 +22,8 @@ import ActivityLog from './pages/ActivityLog/ActivityLog';
 import DashboardLayout from './layouts/DashboardLayout';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import AuthSuccess from './pages/AuthSuccess/AuthSuccess';
+import ErrorBoundary from './components/ErrorBoundary';
+import OfflineBanner from './components/OfflineBanner';
 
 function App() {
   const { fetchMe } = useAuthStore();
@@ -31,7 +33,9 @@ function App() {
   }, [fetchMe]);
 
   return (
-    <BrowserRouter>
+    <ErrorBoundary>
+      <OfflineBanner />
+      <BrowserRouter>
       <Routes>
 
         <Route path="/" element={<Landing />} />
@@ -60,6 +64,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

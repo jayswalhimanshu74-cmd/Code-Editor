@@ -54,6 +54,10 @@ public class GitService {
     }
 
     public boolean initRepository(String roomId) {
+        if (roomId == null || roomId.contains("..") || roomId.contains("/") || roomId.contains("\\")) {
+            log.error("Invalid roomId for git init: {}", roomId);
+            return false;
+        }
         File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
         if (!repoDir.exists() && !repoDir.mkdirs()) {
             log.error("Failed to create workspace directory for git init");

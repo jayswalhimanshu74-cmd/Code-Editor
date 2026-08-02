@@ -76,8 +76,8 @@ public class ExecutionWorker {
                 long duration = System.currentTimeMillis() - startTime;
                 businessMetricsService.recordExecutionTime(duration);
 
-                history.setStdout(result.getStdout());
-                history.setStderr(result.getStderr());
+                history.setStdout(truncateOutput(result.getStdout()));
+                history.setStderr(truncateOutput(result.getStderr()));
                 history.setExitCode(result.getExitCode());
                 history.setDurationMs(result.getDurationMs() != null ? result.getDurationMs().intValue() : (int) duration);
 
@@ -140,5 +140,14 @@ public class ExecutionWorker {
         } catch (Exception e) {
             log.error("Failed to publish status update event for {}", history.getId(), e);
         }
+    }
+
+    private String truncateOutput(String text) {
+        if (text == null) return null;
+        int maxLen = 10000;
+        if (text.length() > maxLen) {
+            return text.substring(0, maxLen) + "\n...[Output Truncated]";
+        }
+        return text;
     }
 }

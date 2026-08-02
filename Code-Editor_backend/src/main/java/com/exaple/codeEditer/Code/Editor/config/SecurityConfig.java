@@ -124,12 +124,24 @@ public class SecurityConfig {
         return expressionHandler;
     }
     
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOriginsProperty;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8080", "https://lodging-october-standing-hospitality.trycloudflare.com"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-XSRF-TOKEN", "X-CSRF-TOKEN", "X-Correlation-ID", "X-Request-ID"));
+        if (allowedOriginsProperty != null && !allowedOriginsProperty.isBlank()) {
+            List<String> origins = java.util.Arrays.stream(allowedOriginsProperty.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+            config.setAllowedOrigins(origins);
+        } else {
+            config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8080"));
+        }
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-XSRF-TOKEN", "X-CSRF-TOKEN", "X-Correlation-ID", "X-Request-ID", "X-Trace-ID"));
+        config.setExposedHeaders(List.of("Authorization", "X-Correlation-ID", "X-Request-ID", "X-Trace-ID"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
