@@ -60,7 +60,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             // GitHub might not return email if it's private.
             // In a real prod environment we'd fetch it via github API, but let's assume
             // public for now or fallback.
-            if (email == null) {
+            if (email == null || email.isBlank()) {
+                email = fetchGitHubPrimaryEmail(oAuth2UserRequest.getAccessToken().getTokenValue());
+            }
+            if (email == null || email.isBlank()) {
                 email = oAuth2User.getAttribute("login") + "@github.com";
             }
         } else {
@@ -102,5 +105,43 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .role("ROLE_USER")
                 .build();
         return userRepository.save(user);
+    }
+
+    private String fetchGitHubPrimaryEmail(String accessToken) {
+        try {
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.set("Accept", "application/vnd.github+json");
+            headers.set("User-Agent", "HenceCode-OAuth");
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+
+            org.springframework.http.ResponseEntity<java.util.List<java.util.Map<String, Object>>> response = restTemplate.exchange(
+                    "https://api.github.com/user/emails",
+                    org.springframework.http.HttpMethod.GET,
+                    entity,
+                    new org.springframework.core.ParameterizedTypeReference<java.util.List<java.util.Map<String, Object>>>() {}
+            );
+
+            if (response.getBody() != null) {
+                for (java.util.Map<String, Object> emailObj : response.getBody()) {
+                    Boolean primary = (Boolean) emailObj.get("primary");
+                    Boolean verified = (Boolean) emailObj.get("verified");
+                    String emailStr = (String) emailObj.get("email");
+                    if (Boolean.TRUE.equals(primary) && Boolean.TRUE.equals(verified) && emailStr != null) {
+                        return emailStr;
+                    }
+                }
+                for (java.util.Map<String, Object> emailObj : response.getBody()) {
+                    String emailStr = (String) emailObj.get("email");
+                    if (emailStr != null && !emailStr.isBlank()) {
+                        return emailStr;
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to fetch private GitHub email via API: {}", ex.getMessage());
+        }
+        return null;
     }
 }

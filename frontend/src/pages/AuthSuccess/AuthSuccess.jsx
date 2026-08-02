@@ -9,11 +9,21 @@ const AuthSuccess = () => {
   useEffect(() => {
     const handleAuth = async () => {
       try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const token = searchParams.get('token') || searchParams.get('accessToken');
+        const refreshToken = searchParams.get('refreshToken');
+
+        if (token) {
+          localStorage.setItem('accessToken', token);
+          if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+          }
+        }
+
         await fetchMe();
-        // If authentication succeeded, wait 1.5 seconds to show a premium transition and redirect
         setTimeout(() => {
           navigate('/dashboard');
-        }, 1500);
+        }, 1200);
       } catch (err) {
         console.error('OAuth processing failed', err);
         navigate('/login');
