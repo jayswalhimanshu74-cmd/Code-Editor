@@ -160,6 +160,11 @@ public class AuthService {
 
 
     private AuthResponse buildAuthResponse(User user) {
+        if (user.getLastLogoutAt() != null) {
+            user.setLastLogoutAt(null);
+            userRepository.save(user);
+        }
+
         String accessToken  = jwtService.generateAccessToken(user.getId(), user.getEmail());
         String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail());
 

@@ -66,7 +66,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         .atZone(java.time.ZoneId.systemDefault())
                         .toLocalDateTime();
                 
-                if (issuedAtLDT.isBefore(user.getLastLogoutAt())) {
+                if (issuedAtLDT.isBefore(user.getLastLogoutAt().minusSeconds(5))) {
                     filterChain.doFilter(request, response);
                     return;
                 }
