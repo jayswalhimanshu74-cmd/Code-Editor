@@ -20,7 +20,7 @@
 	<name>hence-code</name>
 
 	<properties>
-		<java.version>22</java.version>
+		<java.version>21</java.version>
 	</properties>
 
 
