@@ -5,7 +5,7 @@ import { wsService } from './websocketService';
 export const getBackendUrl = () => {
     let url = import.meta.env.VITE_API_URL;
     if (!url || url === 'undefined' || (url.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
-        url = 'https://hencecode-backend.onrender.com';
+        url = 'https://code-editor-5n1x.onrender.com';
     }
     return url.replace(/\/$/, '');
 };
