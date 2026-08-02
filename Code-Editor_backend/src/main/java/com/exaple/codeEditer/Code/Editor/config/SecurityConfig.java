@@ -33,34 +33,15 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final com.exaple.codeEditer.Code.Editor.security.CustomAccessDeniedHandler customAccessDeniedHandler;
     private final com.exaple.codeEditer.Code.Editor.security.CustomOAuth2UserService customOAuth2UserService;
     private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
 
-    private static class CsrfCookieFilter extends org.springframework.web.filter.OncePerRequestFilter {
-        @Override
-        protected void doFilterInternal(jakarta.servlet.http.HttpServletRequest request,
-                jakarta.servlet.http.HttpServletResponse response, jakarta.servlet.FilterChain filterChain)
-                throws jakarta.servlet.ServletException, java.io.IOException {
-            org.springframework.security.web.csrf.CsrfToken csrfToken = (org.springframework.security.web.csrf.CsrfToken) request
-                    .getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
-            if (csrfToken != null) {
-                csrfToken.getToken();
-            }
-            filterChain.doFilter(request, response);
-        }
-    }
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(
-                                org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(
-                                new org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/api/auth/**", "/ws/**", "/oauth2/**", "/login/oauth2/**",
-                                "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html"))
+                .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .headers(headers -> {
                     headers.contentSecurityPolicy(csp -> csp.policyDirectives(
@@ -73,7 +54,9 @@ public class SecurityConfig {
                     headers.referrerPolicy(referrer -> referrer.policy(
                             org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
                 })
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(customAuthenticationEntryPoint))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
@@ -95,7 +78,6 @@ public class SecurityConfig {
                         .successHandler(oAuth2AuthenticationSuccessHandler))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(new CsrfCookieFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

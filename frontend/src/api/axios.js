@@ -12,7 +12,7 @@ export const getBackendUrl = () => {
 
 const api = axios.create({
     baseURL: getBackendUrl() + '/api',
-    withCredentials: true,
+    withCredentials: true
 });
 
 // ✅ Attach Bearer token from localStorage for cross-domain requests
