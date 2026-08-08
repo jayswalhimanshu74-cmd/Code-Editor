@@ -49,7 +49,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
 
-        if (jwt == null || !jwtService.isTokenValid(jwt) || jwtTokenBlacklistService.isBlacklisted(jwt)) {
+        if (jwt == null || !jwtService.isTokenValid(jwt) || 
+            !"access".equals(jwtService.extractTokenType(jwt)) || 
+            jwtTokenBlacklistService.isBlacklisted(jwt)) {
             filterChain.doFilter(request, response);
             return;
         }

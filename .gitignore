@@ -6,6 +6,10 @@ node_modules/
 design/
 .github.zip
 code-editor.zip
+.env
+*.env
+**/.env*
+Code-Editor_backend/original_secrets_backup.txt
 Code-Editor_backend/.env.properties
 Code-Editor_backend/cloud-snapshots/
 Code-Editor_backend/cloud-workspaces/

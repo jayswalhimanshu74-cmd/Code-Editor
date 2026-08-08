@@ -9,10 +9,9 @@ import java.util.Set;
 @Service
 public class AllowedCommandPolicy {
 
-    private static final Set<String> BLOCKED_COMMANDS = new HashSet<>(Arrays.asList(
-            "reboot", "shutdown", "init", "poweroff", "halt", 
-            "chroot", "dd", "mkfs", "fdisk", "mount", "umount",
-            "iptables", "ufw", "sysctl", "modprobe", "insmod", "rmmod"
+    private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList(
+            "ls", "cd", "cat", "echo", "pwd", "mkdir", "rm", "cp", "mv", "touch", "grep", "find", "git",
+            "node", "npm", "python", "python3", "pip", "java", "javac", "mvn"
     ));
 
     public boolean isCommandAllowed(String baseCommand) {
@@ -45,7 +44,7 @@ public class AllowedCommandPolicy {
                 cleanCmd = cleanCmd.substring(lastSlash + 1);
             }
 
-            if (BLOCKED_COMMANDS.contains(cleanCmd)) {
+            if (!ALLOWED_COMMANDS.contains(cleanCmd)) {
                 return false;
             }
         }

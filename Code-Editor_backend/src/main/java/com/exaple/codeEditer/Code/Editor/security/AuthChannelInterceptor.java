@@ -72,7 +72,7 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            if (jwtService.isTokenValid(token)) {
+            if (jwtService.isTokenValid(token) && "access".equals(jwtService.extractTokenType(token))) {
                 String email = jwtService.extractEmail(token);
                 
                 // Check if token was issued before last logout

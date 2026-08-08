@@ -34,7 +34,7 @@ public class AuthController {
             return ResponseEntity.status(429).header("Retry-After", "60").body(Map.of("message", "Too many registration attempts. Try again later."));
         }
         AuthResponse response = authService.register(request);
-        return buildCookieResponse(response);
+        return buildCookieResponse(response, httpRequest);
     }
 
     @PostMapping("/login")
@@ -44,7 +44,7 @@ public class AuthController {
             return ResponseEntity.status(429).header("Retry-After", "60").body(Map.of("message", "Too many login attempts. Try again later."));
         }
         AuthResponse response = authService.login(request);
-        return buildCookieResponse(response);
+        return buildCookieResponse(response, httpRequest);
     }
 
     @PostMapping("/refresh")
@@ -71,7 +71,7 @@ public class AuthController {
         RefreshTokenRequest request = new RefreshTokenRequest();
         request.setRefreshToken(tokenToUse);
         AuthResponse response = authService.refresh(request);
-        return buildCookieResponse(response);
+        return buildCookieResponse(response, httpRequest);
     }
 
     @PostMapping("/logout")
@@ -100,10 +100,13 @@ public class AuthController {
             jwtTokenBlacklistService.blacklistToken(jwt, 900);
         }
 
+        boolean isHttps = isRequestHttps(request);
+        String sameSite = isHttps ? "None" : "Lax";
+
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("Lax").build();
+                .httpOnly(true).secure(isHttps).path("/").maxAge(0).sameSite(sameSite).build();
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true).secure(true).path("/").maxAge(0).sameSite("Lax").build();
+                .httpOnly(true).secure(isHttps).path("/").maxAge(0).sameSite(sameSite).build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
@@ -111,19 +114,33 @@ public class AuthController {
                 .build();
     }
 
-    private ResponseEntity<AuthResponse> buildCookieResponse(AuthResponse authResponse) {
+    private ResponseEntity<AuthResponse> buildCookieResponse(AuthResponse authResponse, HttpServletRequest request) {
         String accessToken = authResponse.getAccessToken();
         String refreshToken = authResponse.getRefreshToken();
 
+        boolean isHttps = isRequestHttps(request);
+        String sameSite = isHttps ? "None" : "Lax";
+
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", accessToken != null ? accessToken : "")
-                .httpOnly(true).secure(true).path("/").maxAge(900).sameSite("None").build();
+                .httpOnly(true).secure(isHttps).path("/").maxAge(900).sameSite(sameSite).build();
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken != null ? refreshToken : "")
-                .httpOnly(true).secure(true).path("/").maxAge(604800).sameSite("None").build();
+                .httpOnly(true).secure(isHttps).path("/").maxAge(604800).sameSite(sameSite).build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(authResponse);
+    }
+
+    private boolean isRequestHttps(HttpServletRequest request) {
+        if (request == null) return false;
+        if (request.isSecure()) return true;
+        String xfp = request.getHeader("X-Forwarded-Proto");
+        if (xfp != null && "https".equalsIgnoreCase(xfp.trim())) return true;
+        String origin = request.getHeader("Origin");
+        if (origin != null && origin.startsWith("https://")) return true;
+        String referer = request.getHeader("Referer");
+        return referer != null && referer.startsWith("https://");
     }
 
     @GetMapping("/me")

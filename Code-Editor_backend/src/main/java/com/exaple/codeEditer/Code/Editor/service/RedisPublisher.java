@@ -28,9 +28,17 @@ public class RedisPublisher {
                     .build();
 
             redisTemplate.convertAndSend(TOPIC, message);
-            log.debug("Published message to Redis for STOMP destination: {}", destination);
+            log.info(
+                "REDIS PUBLISH: destination={}, payload={}",
+                destination,
+                payloadJson
+            );        
         } catch (Exception e) {
-            log.error("Failed to publish message to Redis: {}", e.getMessage(), e);
+            log.error(
+                "Failed to publish message to Redis: {}",
+                e.getMessage(),
+                e
+            );
         }
     }
 }

@@ -34,6 +34,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId.toString())
+                .claim("type", "access")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiry))
                 .signWith(getSigningKey())
@@ -44,6 +45,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId.toString())
+                .claim("type", "refresh")
                 .id(UUID.randomUUID().toString()) // Add JTI to ensure uniqueness
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 604800000L)) // 7 days
@@ -54,6 +56,7 @@ public class JwtService {
     public String generatePasswordResetToken(String email) {
         return Jwts.builder()
                 .subject(email)
+                .claim("type", "reset")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 900000L)) // 15 minutes
                 .signWith(getSigningKey())
@@ -83,6 +86,16 @@ public class JwtService {
             return claims.getExpiration().after(new Date());
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    public String extractTokenType(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Object type = claims.get("type");
+            return type != null ? type.toString() : "access";
+        } catch (Exception e) {
+            return null;
         }
     }
 }

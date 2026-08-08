@@ -1,0 +1,68 @@
+services:
+  hencecode-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hencecode-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hence_code}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_URL=redis://redis:6379
+      - EXECUTION_PROVIDER=judge0
+      - EXECUTION_JUDGE0_URL=https://ce.judge0.com/submissions?wait=true
+      - EXECUTION_JUDGE0_TIMEOUT=10000
+      - EXECUTION_JUDGE0_MEMORY=128000
+      - EXECUTION_JUDGE0_CPU=5.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hencecode-net
+
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hencecode-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-hence_code}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-hence_code}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hencecode-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: hencecode-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hencecode-net
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  hencecode-net:
+    driver: bridge

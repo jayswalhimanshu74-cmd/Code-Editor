@@ -28,47 +28,37 @@ api.interceptors.request.use(
 );
 
 
-// ✅ Auto-refresh on 401
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-    failedQueue.forEach(({ resolve, reject }) => {
-        if (error) reject(error);
-        else resolve(token);
-    });
-    failedQueue = [];
-};
+// ✅ Auto-refresh on 401 with promise deduplication
+let refreshPromise = null;
 
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        if (!originalRequest) return Promise.reject(error);
+
         const isAuthRequest = originalRequest.url?.includes('/auth/refresh') || 
                               originalRequest.url?.includes('/auth/login') || 
                               originalRequest.url?.includes('/auth/register');
 
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
-            if (isRefreshing) {
-                // Queue requests while refresh is in progress
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                }).then((token) => {
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return api(originalRequest);
+            originalRequest._retry = true;
+
+            if (!refreshPromise) {
+                refreshPromise = authService.refresh().finally(() => {
+                    refreshPromise = null;
                 });
             }
 
-            originalRequest._retry = true;
-            isRefreshing = true;
-
             try {
-                await authService.refresh();
-                processQueue(null, null);
+                await refreshPromise;
+                const token = localStorage.getItem('accessToken');
+                if (token) {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
                 return api(originalRequest);
             } catch (refreshError) {
-                processQueue(refreshError, null);
-                // Refresh failed — backend will clear cookies
+                // Refresh failed — clear state and disconnect WebSocket
                 wsService.disconnect();
                 
                 // Dynamically import store to update auth state without circular dependency
@@ -86,8 +76,6 @@ api.interceptors.response.use(
                     window.location.href = '/login';
                 }
                 return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
             }
         }
 

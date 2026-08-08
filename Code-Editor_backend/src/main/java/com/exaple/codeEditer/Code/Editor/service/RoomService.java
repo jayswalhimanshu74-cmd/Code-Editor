@@ -130,6 +130,12 @@ public class RoomService {
         roomRepository.delete(room);
     }
 
+    @Transactional(readOnly = true)
+    public Integer getMappedPort(UUID roomId, int port, String email) {
+        getRoom(roomId, email);
+        return port;
+    }
+
     // ── Helpers ───────────────────────────────────────────
 
     private User getUserByEmail(String email) {

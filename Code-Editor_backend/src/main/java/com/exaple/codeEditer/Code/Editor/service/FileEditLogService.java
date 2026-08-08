@@ -72,6 +72,11 @@ public class FileEditLogService {
     @Transactional
     public void logAction(UUID fileId, UUID roomId, String userEmail,
             String fileName, String actionType) {
+        if (fileName == null || fileName.isBlank()) {
+            log.debug("Skipping FileEditLog action {} because fileName is null or blank", actionType);
+            return;
+        }
+
         try {
             Room room = roomRepository.findById(roomId).orElse(null);
             User user = userRepository.findByEmail(userEmail).orElse(null);

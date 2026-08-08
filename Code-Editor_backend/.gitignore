@@ -20,6 +20,9 @@ target/
 *.ipr
 
 .env.properties
+.env
+*.env
+original_secrets_backup.txt
 
 ### NetBeans ###
 /nbproject/private/
@@ -38,3 +41,4 @@ cloud-workspaces/
 cloud-snapshots/
 .exec/
 target/classes/workspace-image/
+*.log

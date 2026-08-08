@@ -61,7 +61,11 @@ public class FileService {
         checkMembership(room, email);
 
         File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+                .orElseThrow(() -> new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId));
+
+        if (!file.getRoom().getId().equals(roomId)) {
+            throw new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId);
+        }
 
         return toFileResponse(file);
     }
@@ -107,7 +111,11 @@ public class FileService {
         checkMembership(room, email);
 
         File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+                .orElseThrow(() -> new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId));
+
+        if (!file.getRoom().getId().equals(roomId)) {
+            throw new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId);
+        }
 
         if (request.getName() != null && !pathSecurityService.isNameSafe(request.getName())) {
             throw new SecurityException("Invalid file name: directory traversal or path separators not allowed");
@@ -131,7 +139,11 @@ public class FileService {
         Room room = getRoom(roomId);
         checkMembership(room, email);
         File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new RuntimeException("File not found"));
+                .orElseThrow(() -> new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId));
+
+        if (!file.getRoom().getId().equals(roomId)) {
+            throw new com.exaple.codeEditer.Code.Editor.exception.ResourceNotFoundException("File", "id", fileId);
+        }
 
         String fileName = file.getName();
         fileEditLogRepository.setFileToNullByFileId(fileId);

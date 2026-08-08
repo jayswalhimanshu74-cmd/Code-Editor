@@ -9,6 +9,7 @@ import com.exaple.codeEditer.Code.Editor.entity.User;
 import com.exaple.codeEditer.Code.Editor.repository.RefreshTokenRepository;
 import com.exaple.codeEditer.Code.Editor.repository.UserRepository;
 import com.exaple.codeEditer.Code.Editor.security.JwtService;
+import com.exaple.codeEditer.Code.Editor.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,7 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
-
+    
     @Transactional
     public AuthResponse register(RegisterRequest request) {
 
@@ -78,21 +79,29 @@ public class AuthService {
     @Transactional
     public AuthResponse refresh(RefreshTokenRequest request) {
 
+        if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            throw new UnauthorizedException("Refresh token is required");
+        }
+
         RefreshToken stored = refreshTokenRepository
                 .findByToken(request.getRefreshToken())
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
         if (stored.getRevoked()) {
-            throw new RuntimeException("Refresh token has been revoked");
+            throw new UnauthorizedException("Refresh token has been revoked");
         }
-        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Refresh token expired");
+        if (stored.getExpiresAt() != null && stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new UnauthorizedException("Refresh token expired");
         }
-        if (!jwtService.isTokenValid(request.getRefreshToken())) {
-            throw new RuntimeException("Refresh token invalid");
+        if (!jwtService.isTokenValid(request.getRefreshToken()) || 
+            !"refresh".equals(jwtService.extractTokenType(request.getRefreshToken()))) {
+            throw new UnauthorizedException("Refresh token invalid");
         }
 
         User user = stored.getUser();
+        if (user == null) {
+            throw new UnauthorizedException("User not found for refresh token");
+        }
 
         // rotate — revoke old, issue new
         stored.setRevoked(true);
@@ -144,7 +153,8 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        if (!jwtService.isTokenValid(token)) {
+        if (!jwtService.isTokenValid(token) || 
+            !"reset".equals(jwtService.extractTokenType(token))) {
             auditLogService.log("PASSWORD_RESET_FAILED", "TOKEN", token, "Password reset failed (invalid or expired token)");
             throw new RuntimeException("Invalid or expired reset token");
         }

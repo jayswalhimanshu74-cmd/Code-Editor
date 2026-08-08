@@ -10,6 +10,7 @@ import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
 import com.exaple.codeEditer.Code.Editor.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import com.exaple.codeEditer.Code.Editor.service.AuditLogService;
 import com.exaple.codeEditer.Code.Editor.service.FileEditLogService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -31,6 +32,7 @@ public class RoomWebSocketController {
     private final UserRepository userRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final FileEditLogService fileEditLogService;
+    private final AuditLogService auditLogService;
 
     // ── Code change ───────────────────────────────────────
     // Client sends to  : /app/room/{roomId}/code
@@ -109,8 +111,8 @@ public class RoomWebSocketController {
                 "/topic/room/" + roomId + "/presence", event
         );
 
-        if (event.getEmail() != null) {
-            fileEditLogService.logAction(null, UUID.fromString(roomId), event.getEmail(), null, "JOIN");
+        if (event.getEmail() != null || event.getUsername() != null) {
+            auditLogService.log("ROOM_JOIN", "ROOM", roomId, "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " joined room");
         }
 
         log.info("User {} joined room {}", event.getUsername(), roomId);
@@ -131,8 +133,8 @@ public class RoomWebSocketController {
                 "/topic/room/" + roomId + "/presence", event
         );
 
-        if (event.getEmail() != null) {
-            fileEditLogService.logAction(null, UUID.fromString(roomId), event.getEmail(), null, "LEAVE");
+        if (event.getEmail() != null || event.getUsername() != null) {
+            auditLogService.log("ROOM_LEAVE", "ROOM", roomId, "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " left room");
         }
 
         log.info("User {} left room {}", event.getUsername(), roomId);
