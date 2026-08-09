@@ -17,14 +17,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final AuthChannelInterceptor authChannelInterceptor;
 
     @Override
-public void registerStompEndpoints(StompEndpointRegistry registry) {
-    registry.addEndpoint("/ws")
-            .setAllowedOrigins(
-                    "http://localhost:5173",
-                    "https://lodging-october-standing-hospitality.trycloudflare.com"
-            )
-            .withSockJS();
-}
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns(
+                        "http://localhost:5173",
+                        "https://*.trycloudflare.com",
+                        "https://*.vercel.app"
+                )
+                .withSockJS();
+    }
 
     @Override
     public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
