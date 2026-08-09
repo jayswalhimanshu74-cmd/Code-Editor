@@ -420,6 +420,121 @@ public class WorkspaceSyncService {
         }
     }
 
+    public String getDbFileRelativePath(File file) {
+        StringBuilder sb = new StringBuilder(file.getName());
+        File parent = file.getParent();
+        while (parent != null) {
+            sb.insert(0, parent.getName() + "/");
+            parent = parent.getParent();
+        }
+        return sb.toString();
+    }
+
+    @Transactional(readOnly = true)
+    public void syncDatabaseToLocal(String roomId) {
+        pathSecurityService.validatePath(HOST_WORKSPACES_DIR, roomId);
+        UUID roomUUID = UUID.fromString(roomId);
+        Room room = roomRepository.findById(roomUUID).orElse(null);
+        if (room == null) return;
+
+        List<File> dbFiles = fileRepository.findByRoom(room);
+        for (File f : dbFiles) {
+            String relPath = getDbFileRelativePath(f);
+            if (f.getIsFolder()) {
+                Path folderPath = Paths.get(HOST_WORKSPACES_DIR, roomId, relPath).toAbsolutePath().normalize();
+                try {
+                    Files.createDirectories(folderPath);
+                } catch (IOException e) {
+                    log.error("Failed to create directory during DB-to-local sync: {}", folderPath, e);
+                }
+            } else {
+                writeDbFileToDisk(roomId, relPath, f.getContent() != null ? f.getContent() : "");
+            }
+        }
+    }
+
+    @Transactional
+    public void syncLocalToDatabase(String roomId) {
+        pathSecurityService.validatePath(HOST_WORKSPACES_DIR, roomId);
+        UUID roomUUID = UUID.fromString(roomId);
+        Room room = roomRepository.findById(roomUUID).orElse(null);
+        if (room == null) return;
+
+        Path rootPath = Paths.get(HOST_WORKSPACES_DIR, roomId).toAbsolutePath().normalize();
+        if (!Files.exists(rootPath)) return;
+
+        Set<String> filesOnDisk = new HashSet<>();
+        try {
+            Files.walkFileTree(rootPath, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    Path rel = rootPath.relativize(dir);
+                    String relStr = rel.toString().replace("\\", "/");
+                    if (shouldIgnore(dir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (!relStr.isEmpty()) {
+                        filesOnDisk.add(relStr);
+                        // Ensure folder exists in DB
+                        resolveFileByPath(room, relStr, true);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Path rel = rootPath.relativize(file);
+                    String relStr = rel.toString().replace("\\", "/");
+                    if (!shouldIgnore(file)) {
+                        filesOnDisk.add(relStr);
+                        try {
+                            String content = Files.readString(file, StandardCharsets.UTF_8);
+                            // Create or update database record
+                            File dbFile = resolveFileByPath(room, relStr, false);
+                            if (dbFile != null && !Objects.equals(dbFile.getContent(), content)) {
+                                dbFile.setContent(content);
+                                fileRepository.save(dbFile);
+                            }
+                        } catch (Exception e) {
+                            log.error("Failed to read/save file during sync: {}", file, e);
+                        }
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                private boolean shouldIgnore(Path path) {
+                    String name = path.getFileName().toString();
+                    return name.equals(".git") || name.equals("node_modules") || name.equals("target") || name.equals("build") || name.equals("dist");
+                }
+            });
+        } catch (IOException e) {
+            log.error("Error walking filesystem during sync for room: {}", roomId, e);
+        }
+
+        // Delete files in DB that are not on disk anymore (excluding hidden/ignored folders)
+        List<File> dbFiles = fileRepository.findByRoom(room);
+        List<File> toDelete = new ArrayList<>();
+        for (File f : dbFiles) {
+            String relPath = getDbFileRelativePath(f);
+            if (!filesOnDisk.contains(relPath)) {
+                toDelete.add(f);
+            }
+        }
+
+        // Sort to delete deepest children first
+        toDelete.sort((f1, f2) -> {
+            String p1 = getDbFileRelativePath(f1);
+            String p2 = getDbFileRelativePath(f2);
+            return Integer.compare(p2.split("/").length, p1.split("/").length);
+        });
+
+        for (File f : toDelete) {
+            fileRepository.delete(f);
+        }
+
+        notifyWorkspaceRefresh(roomId);
+    }
+
     @jakarta.annotation.PreDestroy
     public void cleanup() {
         log.info("Shutting down WorkspaceSyncService executor service...");

@@ -4,6 +4,7 @@ import com.exaple.codeEditer.Code.Editor.dto.ws.ChatEvent;
 import com.exaple.codeEditer.Code.Editor.dto.ws.CodeChangeEvent;
 import com.exaple.codeEditer.Code.Editor.dto.ws.CursorEvent;
 import com.exaple.codeEditer.Code.Editor.dto.ws.UserJoinLeaveEvent;
+import com.exaple.codeEditer.Code.Editor.service.WorkspaceSyncService;
 import com.exaple.codeEditer.Code.Editor.entity.ChatMessage;
 import com.exaple.codeEditer.Code.Editor.repository.ChatMessageRepository;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
@@ -33,6 +34,7 @@ public class RoomWebSocketController {
     private final ChatMessageRepository chatMessageRepository;
     private final FileEditLogService fileEditLogService;
     private final AuditLogService auditLogService;
+    private final WorkspaceSyncService workspaceSyncService;
 
     // ── Code change ───────────────────────────────────────
     // Client sends to  : /app/room/{roomId}/code
@@ -103,6 +105,13 @@ public class RoomWebSocketController {
     public void handleUserJoin(
             @DestinationVariable String roomId,
             @Payload UserJoinLeaveEvent event) {
+
+        // Auto-start filesystem syncing/watch service on user join
+        try {
+            workspaceSyncService.startSyncing(roomId);
+        } catch (Exception e) {
+            log.error("Failed to start workspace sync on user join for room {}", roomId, e);
+        }
 
         event.setType("JOIN");
         event.setTimestamp(System.currentTimeMillis());

@@ -59,6 +59,15 @@ public class Room {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "github_repo_owner")
+    private String githubRepoOwner;
+
+    @Column(name = "github_repo_name")
+    private String githubRepoName;
+
+    @Column(name = "github_repo_url")
+    private String githubRepoUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

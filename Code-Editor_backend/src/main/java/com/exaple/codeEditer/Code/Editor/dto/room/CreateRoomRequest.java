@@ -14,4 +14,8 @@ public class CreateRoomRequest {
     private String name;
 
     private String language = "javascript";
+
+    private String githubRepoOwner;
+    private String githubRepoName;
+    private String githubRepoUrl;
 }

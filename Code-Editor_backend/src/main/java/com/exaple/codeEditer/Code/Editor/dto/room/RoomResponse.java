@@ -19,6 +19,9 @@ public class RoomResponse {
     private String inviteCode;
     private String language;
     private Boolean isActive;
+    private String githubRepoOwner;
+    private String githubRepoName;
+    private String githubRepoUrl;
     private LocalDateTime createdAt;
     private OwnerDto owner;
     private List<MemberDto> members;

@@ -26,10 +26,10 @@ public class GitHubService {
     private final RestTemplate restTemplate;
     private final com.exaple.codeEditer.Code.Editor.security.GitHubTokenEncryptor githubTokenEncryptor;
 
-    @Value("${github.client.id:}")
+    @Value("${spring.security.oauth2.client.registration.github.client-id}")
     private String clientId;
 
-    @Value("${github.client.secret:}")
+    @Value("${spring.security.oauth2.client.registration.github.client-secret}")
     private String clientSecret;
 
     public void exchangeCodeForToken(User user, String code) {
@@ -120,6 +120,36 @@ public class GitHubService {
         return Collections.emptyList();
     }
     
+    public Map<String, Object> createRepository(User user, String name, String description, boolean isPrivate) {
+        if (user.getGithubAccessToken() == null) {
+            throw new RuntimeException("User has not connected a GitHub account");
+        }
+
+        String url = "https://api.github.com/user/repos";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(githubTokenEncryptor.decrypt(user.getGithubAccessToken()));
+        headers.set("Accept", "application/vnd.github+json");
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = Map.of(
+                "name", name,
+                "description", description != null ? description : "",
+                "private", isPrivate,
+                "auto_init", true
+        );
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to create GitHub repository for user", e);
+            throw new RuntimeException("Failed to create repository: " + e.getMessage(), e);
+        }
+    }
+
     public void disconnectGitHub(User user) {
         user.setGithubAccessToken(null);
         user.setGithubUsername(null);

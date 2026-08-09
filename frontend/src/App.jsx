@@ -20,10 +20,12 @@ import Settings from './pages/Settings/Settings';
 import MobileGuard from './components/MobileGaurd';
 import ActivityLog from './pages/ActivityLog/ActivityLog';
 import DashboardLayout from './layouts/DashboardLayout';
+
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import AuthSuccess from './pages/AuthSuccess/AuthSuccess';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineBanner from './components/OfflineBanner';
+import GitHubCallback from './pages/Settings/GitHubCallback';
 
 function App() {
   const { fetchMe } = useAuthStore();
@@ -60,6 +62,7 @@ function App() {
         {/* Editor & Lobby (No Layout) */}
         <Route path="/room-lobby/:roomId" element={<ProtectedRoute><RoomLobby /></ProtectedRoute>} />
         <Route path="/workspace/:roomId" element={<ProtectedRoute><MobileGuard><EditorWorkspace /></MobileGuard></ProtectedRoute>} />
+        <Route path="/login/oauth2/code/github" element={<ProtectedRoute><GitHubCallback /></ProtectedRoute>} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -25,6 +25,7 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final UserRepository userRepository;
+    private final GitService gitService;
 
     // ── Create room ───────────────────────────────────────
     @Transactional
@@ -37,6 +38,9 @@ public class RoomService {
                 .inviteCode(generateUniqueInviteCode())
                 .owner(owner)
                 .isActive(true)
+                .githubRepoOwner(request.getGithubRepoOwner())
+                .githubRepoName(request.getGithubRepoName())
+                .githubRepoUrl(request.getGithubRepoUrl())
                 .build();
 
         roomRepository.save(room);
@@ -49,6 +53,11 @@ public class RoomService {
                 .build();
 
         roomMemberRepository.save(member);
+
+        // If a GitHub repository is linked, clone it immediately
+        if (request.getGithubRepoUrl() != null && !request.getGithubRepoUrl().isBlank()) {
+            gitService.cloneRepository(room.getId().toString(), request.getGithubRepoUrl(), email);
+        }
 
         return toRoomResponse(room);
     }
@@ -173,6 +182,9 @@ public class RoomService {
                 .inviteCode(room.getInviteCode())
                 .language(room.getLanguage())
                 .isActive(room.getIsActive())
+                .githubRepoOwner(room.getGithubRepoOwner())
+                .githubRepoName(room.getGithubRepoName())
+                .githubRepoUrl(room.getGithubRepoUrl())
                 .createdAt(room.getCreatedAt())
                 .owner(RoomResponse.OwnerDto.builder()
                         .id(room.getOwner().getId())

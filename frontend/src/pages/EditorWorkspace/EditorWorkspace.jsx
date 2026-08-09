@@ -1060,8 +1060,10 @@ const EditorWorkspace = () => {
         ydoc.destroy();
         ydocRef.current = null;
       }
-      yjsService.disconnect(roomId, fileId);
-      console.log('[Yjs] Disconnected from file', fileId);
+      (async () => {
+        await yjsService.disconnect(roomId, fileId);
+        console.log('[Yjs] Disconnected from file', fileId);
+      })();
     };
   }, [activeFile?.id, wsStatus, roomId, user, editorReady]);
 

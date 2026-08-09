@@ -6,6 +6,15 @@ const docs = new Map();
 const awarenesses = new Map();
 const cleanups = new Map();
 
+window.addEventListener('beforeunload', () => {
+  for (const [key, info] of cleanups.entries()) {
+    if (info.flush) {
+      // Fire-and-forget save with keepalive: true
+      info.flush(true);
+    }
+  }
+});
+
 export const yjsService = {
 
   getDoc(roomId) {
@@ -75,6 +84,38 @@ export const yjsService = {
 
     // 3. Send local doc updates & debounce persistence to database
     let debounceTimeout = null;
+
+    const flushSave = async (isUnloading = false) => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = null;
+      }
+      try {
+        const fullState = Y.encodeStateAsUpdate(doc);
+        // Safe conversion to Base64 without call-stack size limit risk
+        let binaryString = '';
+        const bytes = new Uint8Array(fullState);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binaryString += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binaryString);
+
+        await fetch(`${restUrl}/state`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+          body: base64,
+          credentials: 'include',
+          keepalive: isUnloading,
+        });
+        console.log('[Yjs] Full state persisted to database for key:', key);
+      } catch (err) {
+        console.error('[Yjs] Failed to persist full state to DB:', err);
+      }
+    };
+
     const observer = (update, origin) => {
       try {
         wsService.sendBinary(sendTo, update);
@@ -83,29 +124,7 @@ export const yjsService = {
         if (origin !== wsService) {
           if (debounceTimeout) clearTimeout(debounceTimeout);
           debounceTimeout = setTimeout(async () => {
-            try {
-              const fullState = Y.encodeStateAsUpdate(doc);
-              // Safe conversion to Base64 without call-stack size limit risk
-              let binaryString = '';
-              const bytes = new Uint8Array(fullState);
-              const len = bytes.byteLength;
-              for (let i = 0; i < len; i++) {
-                binaryString += String.fromCharCode(bytes[i]);
-              }
-              const base64 = btoa(binaryString);
-
-              await fetch(`${restUrl}/state`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'text/plain',
-                },
-                body: base64,
-                credentials: 'include',
-              });
-              console.log('[Yjs] Full state persisted to database for key:', key);
-            } catch (err) {
-              console.error('[Yjs] Failed to persist full state to DB:', err);
-            }
+            await flushSave(false);
           }, 2000);
         }
       } catch (err) {
@@ -146,8 +165,10 @@ export const yjsService = {
       awareObserver,
       doc,
       awareness,
-      clearDebounce: () => {
-        if (debounceTimeout) clearTimeout(debounceTimeout);
+      flush: async (isUnloading = false) => {
+        if (debounceTimeout) {
+          await flushSave(isUnloading);
+        }
       }
     });
     console.log('[Yjs] cleanup stored, unsub type:', typeof sub, 'awareUnsub type:', typeof awareSub);
@@ -159,11 +180,13 @@ export const yjsService = {
     return awarenesses.get(key) || null;
   },
 
-  disconnect(roomId, fileId = null) {
+  async disconnect(roomId, fileId = null) {
     const key = fileId ? `${roomId}:${fileId}` : roomId;
     const info = cleanups.get(key);
     if (info) {
-      info.clearDebounce?.();
+      if (info.flush) {
+        await info.flush();
+      }
       info.doc.off('update', info.observer);
       info.awareness?.off('change', info.awareObserver);
       if (typeof info.unsub === 'function') info.unsub();

@@ -18,7 +18,7 @@ const useRoomStore = create((set) => ({
 
     createRoom: async (name, language) => {
         try {
-            const { data } = await roomService.createRoom(name, language);
+            const { data } = await roomService.createRoom({ name, language });
             set((state) => ({ rooms: [data, ...state.rooms] }));
             return data;
         } catch (err) {

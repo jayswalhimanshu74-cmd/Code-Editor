@@ -30,6 +30,32 @@ class WebSocketService {
                 this.connected = true;
                 console.log("[WS] Connected to server");
 
+                // Re-subscribe all active topics
+                this.subscriptions.forEach((entry, topic) => {
+                    entry.stompSub = null; // Clear old reference
+                    const stompSub = this.client.subscribe(topic, (message) => {
+                        let parsed;
+                        if (entry.isBinary) {
+                            parsed = message.body;
+                        } else {
+                            try {
+                                parsed = JSON.parse(message.body);
+                            } catch {
+                                parsed = message.body;
+                            }
+                        }
+                        entry.listeners.forEach((cb) => {
+                            try {
+                                cb(parsed, message);
+                            } catch (err) {
+                                console.error("[WS] Listener callback error:", err);
+                            }
+                        });
+                    });
+                    entry.stompSub = stompSub;
+                    console.log("[WS] Re-subscribed to topic:", topic);
+                });
+
                 // Flush all queued subscriptions
                 this.onConnectCallbacks.forEach(cb => cb());
                 this.onConnectCallbacks = [];
@@ -50,7 +76,12 @@ class WebSocketService {
             },
 
             beforeConnect: () => {
-                // Cookies are automatically sent
+                const token = localStorage.getItem('accessToken');
+                if (token) {
+                    this.client.connectHeaders = {
+                        Authorization: `Bearer ${token}`
+                    };
+                }
             },
         });
 
@@ -176,6 +207,20 @@ class WebSocketService {
         }
         this.connected = false;
         console.log("[WS] Manually disconnected");
+    }
+
+    async reconnect() {
+        if (!this.client) {
+            console.warn("[WS] No client exists to reconnect");
+            return;
+        }
+        console.log("[WS] Reconnecting STOMP client with new authentication token...");
+        try {
+            await this.client.deactivate();
+            this.client.activate();
+        } catch (err) {
+            console.error("[WS] Error during STOMP reconnect:", err);
+        }
     }
 
     isConnected() {

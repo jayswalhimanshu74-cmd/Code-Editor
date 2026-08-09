@@ -33,6 +33,8 @@ public class GitService {
 
     private final com.exaple.codeEditer.Code.Editor.repository.UserRepository userRepository;
     private final com.exaple.codeEditer.Code.Editor.security.GitHubTokenEncryptor githubTokenEncryptor;
+    private final PathSecurityService pathSecurityService;
+    private final WorkspaceSyncService workspaceSyncService;
 
     private static final String HOST_WORKSPACES_DIR = System.getProperty("user.dir") + "/cloud-workspaces";
 
@@ -53,12 +55,20 @@ public class GitService {
                 .orElse(null);
     }
 
+    private File getValidatedRepoDir(String roomId) {
+        if (roomId == null) {
+            throw new IllegalArgumentException("Room ID cannot be null");
+        }
+        pathSecurityService.validatePath(HOST_WORKSPACES_DIR, roomId);
+        return Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+    }
+
     public boolean initRepository(String roomId) {
-        if (roomId == null || roomId.contains("..") || roomId.contains("/") || roomId.contains("\\")) {
+        if (roomId == null || !pathSecurityService.isNameSafe(roomId)) {
             log.error("Invalid roomId for git init: {}", roomId);
             return false;
         }
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         if (!repoDir.exists() && !repoDir.mkdirs()) {
             log.error("Failed to create workspace directory for git init");
             return false;
@@ -66,21 +76,38 @@ public class GitService {
 
         try (Git git = Git.init().setDirectory(repoDir).call()) {
             log.info("Initialized Git repository for room: {}", roomId);
+            
+            // Create a default initial commit if the repo is empty
+            File gitignore = new File(repoDir, ".gitignore");
+            if (!gitignore.exists()) {
+                java.nio.file.Files.writeString(gitignore.toPath(), "node_modules/\ntarget/\nbuild/\ndist/\n.env.properties\n");
+            }
+            git.add().addFilepattern(".gitignore").call();
+            git.commit()
+               .setMessage("Initial commit")
+               .setAuthor("Hence-Code", "support@hencecode.com")
+               .call();
+            
+            // Sync local to DB
+            workspaceSyncService.syncLocalToDatabase(roomId);
             return true;
-        } catch (GitAPIException e) {
+        } catch (Exception e) {
             log.error("Error initializing git repository for room {}", roomId, e);
             return false;
         }
     }
 
     public Map<String, Object> getStatus(String roomId) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         Map<String, Object> statusMap = new HashMap<>();
 
         if (!new File(repoDir, ".git").exists()) {
             statusMap.put("isRepo", false);
             return statusMap;
         }
+
+        // Write any pending editor changes to disk first
+        workspaceSyncService.syncDatabaseToLocal(roomId);
 
         try (Git git = Git.open(repoDir)) {
             Status status = git.status().call();
@@ -100,7 +127,11 @@ public class GitService {
     }
 
     public boolean commitChanges(String roomId, String message, String authorName, String authorEmail) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
+        
+        // Write any pending editor changes to disk first
+        workspaceSyncService.syncDatabaseToLocal(roomId);
+
         try (Git git = Git.open(repoDir)) {
             git.add().addFilepattern(".").call();
             git.commit()
@@ -117,7 +148,7 @@ public class GitService {
     }
 
     public String getFileContentFromHead(String roomId, String filePath) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         if (!new File(repoDir, ".git").exists()) {
             return "";
         }
@@ -150,7 +181,7 @@ public class GitService {
 
     public boolean cloneRepository(String roomId, String repoUrl, String email) {
         String token = getDecryptedTokenForUser(email);
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         if (repoDir.exists()) {
             deleteDirectory(repoDir);
         }
@@ -167,6 +198,25 @@ public class GitService {
             
             try (Git git = cloneCommand.call()) {
                 log.info("Successfully cloned repository {} to room {}", repoUrl, roomId);
+                
+                // If cloned repository is empty (no commits), create a default initial commit
+                Repository repository = git.getRepository();
+                ObjectId head = repository.resolve(Constants.HEAD);
+                if (head == null) {
+                    log.info("Cloned repository is empty. Creating initial commit.");
+                    File gitignore = new File(repoDir, ".gitignore");
+                    if (!gitignore.exists()) {
+                        java.nio.file.Files.writeString(gitignore.toPath(), "node_modules/\ntarget/\nbuild/\ndist/\n.env.properties\n");
+                    }
+                    git.add().addFilepattern(".gitignore").call();
+                    git.commit()
+                       .setMessage("Initial commit")
+                       .setAuthor("Hence-Code", "support@hencecode.com")
+                       .call();
+                }
+                
+                // Sync files from local disk to DB
+                workspaceSyncService.syncLocalToDatabase(roomId);
                 return true;
             }
         } catch (Exception e) {
@@ -177,7 +227,7 @@ public class GitService {
 
     public boolean pullChanges(String roomId, String email) {
         String token = getDecryptedTokenForUser(email);
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         try (Git git = Git.open(repoDir)) {
             org.eclipse.jgit.api.PullCommand pull = git.pull();
             if (token != null && !token.isEmpty()) {
@@ -185,6 +235,9 @@ public class GitService {
             }
             pull.call();
             log.info("Successfully pulled changes in room: {}", roomId);
+            
+            // Sync files from local disk to DB
+            workspaceSyncService.syncLocalToDatabase(roomId);
             return true;
         } catch (Exception e) {
             log.error("Failed to pull changes: {}", e.getMessage(), e);
@@ -194,7 +247,11 @@ public class GitService {
 
     public boolean pushChanges(String roomId, String email) {
         String token = getDecryptedTokenForUser(email);
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
+        
+        // Write any pending editor changes to disk first
+        workspaceSyncService.syncDatabaseToLocal(roomId);
+
         try (Git git = Git.open(repoDir)) {
             org.eclipse.jgit.api.PushCommand push = git.push();
             if (token != null && !token.isEmpty()) {
@@ -210,7 +267,7 @@ public class GitService {
     }
 
     public List<String> listBranches(String roomId) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         List<String> branches = new ArrayList<>();
         try (Git git = Git.open(repoDir)) {
             List<org.eclipse.jgit.lib.Ref> refs = git.branchList().setListMode(org.eclipse.jgit.api.ListBranchCommand.ListMode.ALL).call();
@@ -224,7 +281,7 @@ public class GitService {
     }
 
     public boolean createBranch(String roomId, String branchName) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         try (Git git = Git.open(repoDir)) {
             git.branchCreate().setName(branchName).call();
             log.info("Successfully created branch {} in room: {}", branchName, roomId);
@@ -236,10 +293,13 @@ public class GitService {
     }
 
     public boolean checkoutBranch(String roomId, String branchName) {
-        File repoDir = Paths.get(HOST_WORKSPACES_DIR, roomId).toFile();
+        File repoDir = getValidatedRepoDir(roomId);
         try (Git git = Git.open(repoDir)) {
             git.checkout().setName(branchName).call();
             log.info("Successfully checked out branch {} in room: {}", branchName, roomId);
+            
+            // Sync files from local disk to DB
+            workspaceSyncService.syncLocalToDatabase(roomId);
             return true;
         } catch (Exception e) {
             log.error("Failed to checkout branch: {}", e.getMessage(), e);

@@ -10,19 +10,20 @@ const GitHubCallback = () => {
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         const code = queryParams.get('code');
+        const state = queryParams.get('state');
 
-        if (code) {
-            githubService.connect(code)
+        if (code && state) {
+            githubService.connect(code, state)
                 .then((res) => {
                     setStatus('GitHub Connected! Redirecting...');
                     setTimeout(() => navigate('/settings'), 1500);
                 })
                 .catch((err) => {
-                    setStatus('Failed to connect GitHub. Redirecting...');
-                    setTimeout(() => navigate('/settings'), 2500);
+                    setStatus(err.response?.data?.error || 'Failed to connect GitHub. Redirecting...');
+                    setTimeout(() => navigate('/settings'), 3000);
                 });
         } else {
-            setStatus('No authorization code found. Redirecting...');
+            setStatus('No authorization code or state found. Redirecting...');
             setTimeout(() => navigate('/settings'), 2500);
         }
     }, [location, navigate]);

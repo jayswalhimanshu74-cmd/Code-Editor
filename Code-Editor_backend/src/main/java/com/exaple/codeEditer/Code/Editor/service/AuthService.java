@@ -17,10 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -76,30 +76,59 @@ public class AuthService {
         }
     }
 
+    private String fingerprint(String token) {
+        if (token == null) return "null";
+        if (token.length() < 8) return "[too-short]";
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                String hex = Integer.toHexString(0xff & hash[i]);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString() + "...(len=" + token.length() + ")";
+        } catch (Exception e) {
+            return token.substring(0, Math.min(4, token.length())) + "..." + token.substring(Math.max(0, token.length() - 4));
+        }
+    }
+
     @Transactional
     public AuthResponse refresh(RefreshTokenRequest request) {
-
         if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            log.warn("Refresh failed: token is missing");
             throw new UnauthorizedException("Refresh token is required");
         }
 
+        String rawToken = request.getRefreshToken();
+        String fp = fingerprint(rawToken);
+        log.info("Refresh attempt started: tokenFingerprint={}", fp);
+
         RefreshToken stored = refreshTokenRepository
-                .findByToken(request.getRefreshToken())
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+                .findByTokenWithLock(rawToken)
+                .orElseThrow(() -> {
+                    log.warn("Refresh failed: tokenFingerprint={}, reason=Token not found in database", fp);
+                    return new UnauthorizedException("Invalid refresh token");
+                });
 
         if (stored.getRevoked()) {
+            log.warn("Refresh failed: tokenFingerprint={}, reason=Token has been revoked", fp);
             throw new UnauthorizedException("Refresh token has been revoked");
         }
         if (stored.getExpiresAt() != null && stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Refresh failed: tokenFingerprint={}, reason=Token expired", fp);
             throw new UnauthorizedException("Refresh token expired");
         }
-        if (!jwtService.isTokenValid(request.getRefreshToken()) || 
-            !"refresh".equals(jwtService.extractTokenType(request.getRefreshToken()))) {
+        if (!jwtService.isTokenValid(rawToken) || 
+            !"refresh".equals(jwtService.extractTokenType(rawToken))) {
+            log.warn("Refresh failed: tokenFingerprint={}, reason=Token invalid or wrong type", fp);
             throw new UnauthorizedException("Refresh token invalid");
         }
 
         User user = stored.getUser();
         if (user == null) {
+            log.warn("Refresh failed: tokenFingerprint={}, reason=User not found for refresh token", fp);
             throw new UnauthorizedException("User not found for refresh token");
         }
 
@@ -107,6 +136,7 @@ public class AuthService {
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
+        log.info("Refresh token rotated successfully for user={}, email={}", user.getId(), user.getEmail());
         return buildAuthResponse(user);
     }
 
@@ -204,6 +234,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
+                .githubUsername(user.getGithubUsername())
                 .build();
     }
 }

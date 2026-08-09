@@ -56,9 +56,39 @@ public class User {
     @Column(name = "provider_id")
     private String providerId;
 
-    @Column(name = "github_access_token", length = 512)
-    private String githubAccessToken;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private GitHubCredential githubCredential;
 
-    @Column(name = "github_username")
-    private String githubUsername;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public String getGithubAccessToken() {
+        return githubCredential != null ? githubCredential.getGithubAccessToken() : null;
+    }
+
+    public void setGithubAccessToken(String githubAccessToken) {
+        if (githubAccessToken == null) {
+            this.githubCredential = null;
+            return;
+        }
+        if (this.githubCredential == null) {
+            this.githubCredential = new GitHubCredential();
+            this.githubCredential.setUser(this);
+        }
+        this.githubCredential.setGithubAccessToken(githubAccessToken);
+    }
+
+    public String getGithubUsername() {
+        return githubCredential != null ? githubCredential.getGithubUsername() : null;
+    }
+
+    public void setGithubUsername(String githubUsername) {
+        if (githubUsername == null) {
+            return;
+        }
+        if (this.githubCredential == null) {
+            this.githubCredential = new GitHubCredential();
+            this.githubCredential.setUser(this);
+        }
+        this.githubCredential.setGithubUsername(githubUsername);
+    }
 }

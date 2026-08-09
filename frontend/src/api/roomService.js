@@ -7,8 +7,8 @@ export const roomService = {
   getRoom: (roomId) =>
     api.get(`/rooms/${roomId}`),
 
-  createRoom: (name, language) =>
-    api.post('/rooms', { name, language }),
+  createRoom: (payload) =>
+    api.post('/rooms', payload),
 
   joinRoom: (inviteCode) =>
     api.post('/rooms/join', { inviteCode }),

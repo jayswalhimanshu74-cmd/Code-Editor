@@ -24,6 +24,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtTokenBlacklistService jwtTokenBlacklistService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        return path.equals("/ws")
+                || path.startsWith("/ws/");
+    }
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
