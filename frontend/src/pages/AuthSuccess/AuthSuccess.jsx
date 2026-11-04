@@ -1,32 +1,37 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 
 const AuthSuccess = () => {
   const navigate = useNavigate();
-  const { fetchMe, isAuthenticated } = useAuthStore();
+  const { fetchMe } = useAuthStore();
+  const [status, setStatus] = useState('verifying');
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        const searchParams = new URLSearchParams(window.location.search);
-        const token = searchParams.get('token') || searchParams.get('accessToken');
-        const refreshToken = searchParams.get('refreshToken');
-
-        if (token) {
-          localStorage.setItem('accessToken', token);
-          if (refreshToken) {
-            localStorage.setItem('refreshToken', refreshToken);
-          }
-        }
-
+        // Cookies are already set by the backend OAuth2 success handler.
+        // Simply call /me with credentials to validate the session.
         await fetchMe();
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1200);
+
+        const { isAuthenticated } = useAuthStore.getState();
+        if (isAuthenticated) {
+          setStatus('success');
+          setTimeout(() => {
+            navigate('/dashboard', { replace: true });
+          }, 1200);
+        } else {
+          setStatus('failed');
+          setTimeout(() => {
+            navigate('/login', { replace: true });
+          }, 2000);
+        }
       } catch (err) {
-        console.error('OAuth processing failed', err);
-        navigate('/login');
+        console.error('OAuth session verification failed', err);
+        setStatus('failed');
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 2000);
       }
     };
     handleAuth();
@@ -44,14 +49,25 @@ const AuthSuccess = () => {
            style={{ background: 'rgba(10,10,15,0.8)', backdropFilter: 'blur(20px)' }}>
         
         <div className="w-16 h-16 rounded-2xl bg-primary/15 border border-primary/20 flex items-center justify-center relative">
-          <span className="material-symbols-outlined text-primary text-[32px] animate-pulse">security</span>
-          {/* Circular Orbit Spinner */}
-          <div className="absolute inset-0 rounded-2xl border-2 border-primary/30 border-t-primary animate-spin" style={{ margin: -4 }} />
+          <span className="material-symbols-outlined text-primary text-[32px] animate-pulse">
+            {status === 'failed' ? 'error' : 'security'}
+          </span>
+          {status === 'verifying' && (
+            <div className="absolute inset-0 rounded-2xl border-2 border-primary/30 border-t-primary animate-spin" style={{ margin: -4 }} />
+          )}
         </div>
 
         <div>
-          <h1 className="text-[18px] font-black text-white tracking-tight leading-tight">Securing Session</h1>
-          <p className="text-[12px] text-white/50 mt-1.5 leading-relaxed">Verifying credentials and loading workspace profile...</p>
+          <h1 className="text-[18px] font-black text-white tracking-tight leading-tight">
+            {status === 'verifying' && 'Securing Session'}
+            {status === 'success' && 'Welcome Back'}
+            {status === 'failed' && 'Authentication Failed'}
+          </h1>
+          <p className="text-[12px] text-white/50 mt-1.5 leading-relaxed">
+            {status === 'verifying' && 'Verifying credentials and loading workspace profile...'}
+            {status === 'success' && 'Redirecting to your dashboard...'}
+            {status === 'failed' && 'Could not verify your session. Redirecting to login...'}
+          </p>
         </div>
 
         {/* Sync Status Logs */}
@@ -60,14 +76,22 @@ const AuthSuccess = () => {
             <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
             <span>OAuth redirect verified</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[#34d399]">
-            <span className="w-1 h-1 rounded-full bg-[#34d399] animate-pulse" />
-            <span>Access token captured</span>
+          <div className={`flex items-center gap-1.5 ${status !== 'verifying' ? (status === 'success' ? 'text-[#34d399]' : 'text-red-400') : 'text-white/30 animate-pulse'}`}>
+            <span className={`w-1 h-1 rounded-full ${status !== 'verifying' ? (status === 'success' ? 'bg-[#34d399]' : 'bg-red-400') : 'bg-white/30'}`} />
+            <span>{status === 'failed' ? 'Session verification failed' : 'Session cookie validated'}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-white/30 animate-pulse">
-            <span className="w-1 h-1 rounded-full bg-white/30" />
-            <span>Establishing WebSocket link...</span>
-          </div>
+          {status === 'success' && (
+            <div className="flex items-center gap-1.5 text-[#34d399]">
+              <span className="w-1 h-1 rounded-full bg-[#34d399]" />
+              <span>Workspace ready</span>
+            </div>
+          )}
+          {status === 'verifying' && (
+            <div className="flex items-center gap-1.5 text-white/30 animate-pulse">
+              <span className="w-1 h-1 rounded-full bg-white/30" />
+              <span>Establishing session...</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

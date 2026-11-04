@@ -116,7 +116,7 @@ api.interceptors.response.use(
                         }
 
                         // Redirect to login only if not already on a public page to avoid reload loops
-                        const publicPaths = ['/', '/login', '/register', '/auth/success'];
+                        const publicPaths = ['/', '/login', '/register', '/auth/success', '/oauth2/success', '/oauth2/error'];
                         const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
                         if (!publicPaths.includes(currentPath)) {
                             window.location.href = '/login';

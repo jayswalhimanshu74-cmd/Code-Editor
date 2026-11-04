@@ -42,12 +42,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String email;
         String name;
         String avatarUrl;
+        boolean emailVerified = false;
 
         if (authProvider == AuthProvider.GOOGLE) {
             providerId = oAuth2User.getAttribute("sub");
             email = oAuth2User.getAttribute("email");
             name = oAuth2User.getAttribute("name");
             avatarUrl = oAuth2User.getAttribute("picture");
+            // Google OIDC includes email_verified claim
+            Boolean verified = oAuth2User.getAttribute("email_verified");
+            emailVerified = Boolean.TRUE.equals(verified);
         } else if (authProvider == AuthProvider.GITHUB) {
             providerId = String.valueOf(oAuth2User.getAttributes().get("id"));
             email = oAuth2User.getAttribute("email");
@@ -58,13 +62,19 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             avatarUrl = oAuth2User.getAttribute("avatar_url");
 
             // GitHub might not return email if it's private.
-            // In a real prod environment we'd fetch it via github API, but let's assume
-            // public for now or fallback.
+            // Fetch verified primary email via GitHub API.
             if (email == null || email.isBlank()) {
                 email = fetchGitHubPrimaryEmail(oAuth2UserRequest.getAccessToken().getTokenValue());
+                // fetchGitHubPrimaryEmail only returns verified emails
+                emailVerified = (email != null && !email.isBlank());
+            } else {
+                // Email returned directly from GitHub profile is generally verified
+                emailVerified = true;
             }
             if (email == null || email.isBlank()) {
+                // Last resort fallback — this email is synthetic and unverified
                 email = oAuth2User.getAttribute("login") + "@github.com";
+                emailVerified = false;
             }
         } else {
             throw new IllegalArgumentException("Sorry! Login with " + registrationId + " is not supported yet.");
@@ -74,21 +84,55 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         User user;
         if (userOptional.isPresent()) {
             user = userOptional.get();
-            if (user.getProvider() != authProvider) {
-                // User signed up with different provider or local
-                log.info("User {} exists, updating provider to {}", email, authProvider);
-            }
-            user.setProvider(authProvider);
-            user.setProviderId(providerId);
-            if (user.getAvatarUrl() == null || user.getAvatarUrl().isEmpty()) {
-                user.setAvatarUrl(avatarUrl);
-            }
-            user = userRepository.save(user);
+            user = handleExistingUser(user, authProvider, providerId, avatarUrl, emailVerified);
         } else {
             user = registerNewOAuth2User(authProvider, providerId, name, email, avatarUrl);
         }
 
         return new CustomOAuth2User(oAuth2User, user);
+    }
+
+    /**
+     * Handles linking/updating for an existing user found by email.
+     *
+     * Security rules:
+     * - If the user's provider already matches, just update the providerId and avatar.
+     * - If the user is LOCAL (password account), only link if the OAuth email is verified.
+     *   We set the provider to the OAuth provider so future OAuth logins work, but the
+     *   password hash is preserved so password login still works.
+     * - If the user has a DIFFERENT OAuth provider, allow login if email is verified
+     *   (the user owns the email via both providers). Update provider to latest.
+     * - If email is NOT verified, refuse to link to prevent account takeover.
+     */
+    private User handleExistingUser(User user, AuthProvider authProvider, String providerId,
+                                     String avatarUrl, boolean emailVerified) {
+        if (user.getProvider() == authProvider) {
+            // Same provider — just update providerId in case it changed and fill in avatar
+            user.setProviderId(providerId);
+            if (user.getAvatarUrl() == null || user.getAvatarUrl().isEmpty()) {
+                user.setAvatarUrl(avatarUrl);
+            }
+            return userRepository.save(user);
+        }
+
+        // Different provider — only link if the OAuth email is verified
+        if (!emailVerified) {
+            log.warn("Refusing to link unverified OAuth email {} to existing account (provider={})",
+                    user.getEmail(), user.getProvider());
+            throw new org.springframework.security.oauth2.core.OAuth2AuthenticationException(
+                    "Cannot link account: email is not verified by the OAuth provider.");
+        }
+
+        // Safe to link — user owns this email via a verified OAuth provider
+        log.info("Linking user {} from provider {} to OAuth provider {}",
+                user.getEmail(), user.getProvider(), authProvider);
+        user.setProvider(authProvider);
+        user.setProviderId(providerId);
+        if (user.getAvatarUrl() == null || user.getAvatarUrl().isEmpty()) {
+            user.setAvatarUrl(avatarUrl);
+        }
+        // NOTE: passwordHash is intentionally preserved so the user can still log in with password
+        return userRepository.save(user);
     }
 
     private User registerNewOAuth2User(AuthProvider provider, String providerId, String name, String email,
@@ -124,6 +168,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             );
 
             if (response.getBody() != null) {
+                // Only return verified primary email
                 for (java.util.Map<String, Object> emailObj : response.getBody()) {
                     Boolean primary = (Boolean) emailObj.get("primary");
                     Boolean verified = (Boolean) emailObj.get("verified");
@@ -132,9 +177,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                         return emailStr;
                     }
                 }
+                // Fallback: any verified email
                 for (java.util.Map<String, Object> emailObj : response.getBody()) {
+                    Boolean verified = (Boolean) emailObj.get("verified");
                     String emailStr = (String) emailObj.get("email");
-                    if (emailStr != null && !emailStr.isBlank()) {
+                    if (Boolean.TRUE.equals(verified) && emailStr != null && !emailStr.isBlank()) {
                         return emailStr;
                     }
                 }

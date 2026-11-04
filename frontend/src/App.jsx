@@ -23,6 +23,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import AuthSuccess from './pages/AuthSuccess/AuthSuccess';
+import OAuthError from './pages/OAuthError/OAuthError';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineBanner from './components/OfflineBanner';
 import GitHubCallback from './pages/Settings/GitHubCallback';
@@ -44,6 +45,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth/success" element={<AuthSuccess />} />
+        <Route path="/oauth2/success" element={<AuthSuccess />} />
+        <Route path="/oauth2/error" element={<OAuthError />} />
 
 
         {/* Shared Dashboard Layout Routes */}

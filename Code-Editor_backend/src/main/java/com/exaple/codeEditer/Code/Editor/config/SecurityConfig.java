@@ -36,6 +36,7 @@ public class SecurityConfig {
     private final com.exaple.codeEditer.Code.Editor.security.CustomAccessDeniedHandler customAccessDeniedHandler;
     private final com.exaple.codeEditer.Code.Editor.security.CustomOAuth2UserService customOAuth2UserService;
     private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
     private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
 
     @Bean
@@ -75,7 +76,8 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler))
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
