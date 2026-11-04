@@ -4,6 +4,8 @@ import com.exaple.codeEditer.Code.Editor.service.RedisSubscriber;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
+import io.lettuce.core.TimeoutOptions;
+
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,10 +55,10 @@ public class RedisConfig {
     @Value("${spring.data.redis.ssl.enabled:false}")
     private boolean sslEnabled;
 
-    @Value("${spring.data.redis.timeout:3000ms}")
+    @Value("${spring.data.redis.timeout:10000ms}")
     private Duration commandTimeout;
 
-    @Value("${spring.data.redis.connect-timeout:3000ms}")
+    @Value("${spring.data.redis.connect-timeout:10000ms}")
     private Duration connectTimeout;
 
     @Value("${spring.data.redis.lettuce.pool.max-active:16}")
@@ -111,6 +113,8 @@ public class RedisConfig {
                 .build();
 
         ClientOptions clientOptions = ClientOptions.builder()
+                .timeoutOptions(
+                        TimeoutOptions.enabled(Duration.ofSeconds(15)))
                 .socketOptions(socketOptions)
                 .autoReconnect(true)
                 .build();
@@ -121,12 +125,12 @@ public class RedisConfig {
         poolConfig.setMinIdle(minIdle);
         poolConfig.setMaxWait(maxWait);
 
-        LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder builder =
-                LettucePoolingClientConfiguration.builder()
-                        .poolConfig(poolConfig)
-                        .commandTimeout(commandTimeout)
-                        .shutdownTimeout(shutdownTimeout)
-                        .clientOptions(clientOptions);
+        LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder builder = LettucePoolingClientConfiguration
+                .builder()
+                .poolConfig(poolConfig)
+                .commandTimeout(commandTimeout)
+                .shutdownTimeout(shutdownTimeout)
+                .clientOptions(clientOptions);
 
         if (useSsl) {
             log.info("Enabling SSL/TLS for Lettuce Redis Connection");
@@ -201,7 +205,9 @@ public class RedisConfig {
                 try {
                     super.start();
                 } catch (Exception e) {
-                    log.warn("RedisMessageListenerContainer start deferred due to connection issue: {}. Auto-recovery active.", e.getMessage());
+                    log.warn(
+                            "RedisMessageListenerContainer start deferred due to connection issue: {}. Auto-recovery active.",
+                            e.getMessage());
                 }
             }
         };

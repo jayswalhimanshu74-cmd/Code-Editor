@@ -54,7 +54,7 @@ public class RedisStartupValidator {
                 port = uri.getPort();
                 isSsl = uri.isSsl() || (host != null && host.contains("upstash.io")) || sslEnabled;
             } catch (Exception e) {
-                log.error("Invalid REDIS_URL configuration string: {}", redisUrl, e);
+                log.error("Invalid Redis URL configuration. Check the URL format and credentials.", e);
                 throw new IllegalStateException("Invalid REDIS_URL format: " + redisUrl, e);
             }
         } else {
@@ -96,7 +96,8 @@ public class RedisStartupValidator {
 
             throw new IllegalStateException(
                     String.format("Unable to connect to Redis [%s:%d, SSL=%b, Provider=%s]: %s",
-                            host, port, isSsl, provider, e.getMessage()), e);
+                            host, port, isSsl, provider, e.getMessage()),
+                    e);
         }
     }
 }
