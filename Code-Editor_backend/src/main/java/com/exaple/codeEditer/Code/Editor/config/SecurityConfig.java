@@ -3,6 +3,8 @@ package com.exaple.codeEditer.Code.Editor.config;
 import com.exaple.codeEditer.Code.Editor.security.CustomAuthenticationEntryPoint;
 import com.exaple.codeEditer.Code.Editor.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,6 +40,9 @@ public class SecurityConfig {
     private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
     private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -117,31 +122,53 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        java.util.List<String> patterns = new java.util.ArrayList<>();
+
+        List<String> patterns = new java.util.ArrayList<>();
+
+        // Load configured allowed origins
         if (allowedOriginsProperty != null && !allowedOriginsProperty.isBlank()) {
-            patterns.addAll(java.util.Arrays.stream(allowedOriginsProperty.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .toList());
+            patterns.addAll(
+                    java.util.Arrays.stream(allowedOriginsProperty.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList());
         }
-        if (!patterns.contains("http://localhost:5173"))
+
+        // Always allow the configured frontend URL
+        if (frontendUrl != null && !frontendUrl.isBlank()
+                && !patterns.contains(frontendUrl)) {
+            patterns.add(frontendUrl);
+        }
+
+        // Local development
+        if (!patterns.contains("http://localhost:5173")) {
             patterns.add("http://localhost:5173");
-        if (!patterns.contains("http://localhost:8080"))
-            patterns.add("http://localhost:8080");
-        if (!patterns.contains("https://*.vercel.app"))
+        }
+
+        // Vercel preview deployments
+        if (!patterns.contains("https://*.vercel.app")) {
             patterns.add("https://*.vercel.app");
-        if (!patterns.contains("https://*.onrender.com"))
-            patterns.add("https://*.onrender.com");
+        }
 
         config.setAllowedOriginPatterns(patterns);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        config.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization", "X-Correlation-ID", "X-Request-ID", "X-Trace-ID"));
+
+        config.setExposedHeaders(
+                List.of("Authorization", "X-Correlation-ID",
+                        "X-Request-ID", "X-Trace-ID"));
+
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
+
 }

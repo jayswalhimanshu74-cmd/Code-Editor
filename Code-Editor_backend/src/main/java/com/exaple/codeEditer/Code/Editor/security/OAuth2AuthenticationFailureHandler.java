@@ -13,7 +13,8 @@ import java.io.IOException;
 
 /**
  * Handles OAuth2 authentication failures for both Google and GitHub providers.
- * Redirects the user to the frontend error page without exposing sensitive details.
+ * Redirects the user to the frontend error page without exposing sensitive
+ * details.
  */
 @Component
 @Slf4j
@@ -24,7 +25,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
-                                         AuthenticationException exception) throws IOException, ServletException {
+            AuthenticationException exception) throws IOException, ServletException {
 
         // Extract the provider from the request URI if possible
         String provider = extractProvider(request.getRequestURI());
@@ -39,14 +40,17 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
     }
 
     private String extractProvider(String requestUri) {
-        if (requestUri == null) return "unknown";
-        if (requestUri.contains("google")) return "google";
-        if (requestUri.contains("github")) return "github";
+        if (requestUri == null)
+            return "unknown";
+        if (requestUri.contains("google"))
+            return "google";
+        if (requestUri.contains("github"))
+            return "github";
         return "unknown";
     }
 
     private String resolveBaseUrl() {
-        String baseUrl = "http://localhost:5173";
+        String baseUrl = frontendUrl;
         if (frontendUrl != null && !frontendUrl.isBlank()) {
             baseUrl = frontendUrl.trim();
         }

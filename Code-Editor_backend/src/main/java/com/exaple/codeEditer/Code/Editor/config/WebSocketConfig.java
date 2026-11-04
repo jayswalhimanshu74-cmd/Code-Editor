@@ -2,6 +2,8 @@ package com.exaple.codeEditer.Code.Editor.config;
 
 import com.exaple.codeEditer.Code.Editor.security.AuthChannelInterceptor;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -16,24 +18,27 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final AuthChannelInterceptor authChannelInterceptor;
 
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(
-                        "http://localhost:5173",
+                        frontendUrl,
                         "https://*.trycloudflare.com",
-                        "https://*.vercel.app"
-                )
+                        "https://*.vercel.app")
                 .withSockJS();
     }
 
     @Override
     public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
-    registration
-        .setMessageSizeLimit(64 * 1024)      // 64KB per message
-        .setSendBufferSizeLimit(512 * 1024)   // 512KB send buffer
-        .setSendTimeLimit(20_000);            // 20s timeout
-}
+        registration
+                .setMessageSizeLimit(64 * 1024) // 64KB per message
+                .setSendBufferSizeLimit(512 * 1024) // 512KB send buffer
+                .setSendTimeLimit(20_000); // 20s timeout
+    }
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
 
@@ -43,7 +48,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     @Override
-    public void configureClientInboundChannel(org.springframework.messaging.simp.config.ChannelRegistration registration) {
+    public void configureClientInboundChannel(
+            org.springframework.messaging.simp.config.ChannelRegistration registration) {
         registration.interceptors(authChannelInterceptor);
     }
 }

@@ -34,7 +34,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private String frontendUrl;
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+            Authentication authentication) throws IOException, ServletException {
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
         User user = oAuth2User.getUser();
 
@@ -81,10 +82,11 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
     /**
      * Resolves and validates the frontend base URL.
-     * Only uses the configured FRONTEND_URL — never accepts arbitrary redirect targets.
+     * Only uses the configured FRONTEND_URL — never accepts arbitrary redirect
+     * targets.
      */
     private String resolveBaseUrl() {
-        String baseUrl = "http://localhost:5173";
+        String baseUrl = frontendUrl;
         if (frontendUrl != null && !frontendUrl.isBlank()) {
             baseUrl = frontendUrl.trim();
         }
