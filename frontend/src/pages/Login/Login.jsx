@@ -20,6 +20,12 @@ const Login = () => {
   const [localMessage, setLocalMessage] = useState('');
   const [localError, setLocalError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [oauthWaking, setOauthWaking] = useState(false);
+
+  useEffect(() => {
+    // Wake up backend on Render during cold starts
+    fetch(`${getBackendUrl()}/actuator/health`).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +37,10 @@ const Login = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    setOauthWaking(true);
+    setTimeout(() => {
+      window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    }, 100);
   };
 
   const handleForgotSubmit = async (e) => {
@@ -239,6 +248,13 @@ const Login = () => {
                   Google
                 </button>
               </div>
+
+              {oauthWaking && (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-primary/10 border border-primary/25 rounded-xl text-primary text-[12px] font-medium text-center animate-pulse">
+                  <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                  Waking up the server, this can take up to a minute...
+                </div>
+              )}
             </div>
             </>
           )}

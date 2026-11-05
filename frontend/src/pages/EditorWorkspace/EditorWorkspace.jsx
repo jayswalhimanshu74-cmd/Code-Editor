@@ -1296,6 +1296,49 @@ const EditorWorkspace = () => {
   const handleRunWithCode = async (currentCode) => {
     if (isRunning) return;
 
+    // Client-side execution branch for JavaScript & Python (gated behind VITE_CLIENT_RUN, default true)
+    const isClientRunEnabled = import.meta.env.VITE_CLIENT_RUN !== 'false';
+    const isClientLang = fileLanguage === 'javascript' || fileLanguage === 'python';
+
+    if (isClientRunEnabled && isClientLang) {
+      setIsRunning(true);
+      setOutput('');
+      setRightTab('output');
+
+      try {
+        let result;
+        if (fileLanguage === 'javascript') {
+          const { runJs } = await import('../../runners/jsRunner');
+          result = await runJs(currentCode, stdin);
+        } else if (fileLanguage === 'python') {
+          setOutput('Loading Python runtime...\n');
+          const { runPython } = await import('../../runners/pythonRunner');
+          result = await runPython(currentCode, stdin, (statusMsg) => {
+            setOutput((prev) => prev + statusMsg);
+          });
+        }
+
+        let combined = '';
+        if (result.stdout && result.stderr) {
+          combined = `${result.stdout}\n${result.stderr}`;
+        } else if (result.stdout) {
+          combined = result.stdout;
+        } else if (result.stderr) {
+          combined = result.stderr;
+        } else {
+          combined = result.exitCode === 0 ? 'Program executed with no output.' : `Execution ended with exit code: ${result.exitCode}`;
+        }
+
+        combined += '\n\n[Ran in your browser (JavaScript/Python only)]';
+        setOutput(combined);
+      } catch (err) {
+        setOutput(`Execution failed: ${err.message}\n\n[Ran in your browser (JavaScript/Python only)]`);
+      } finally {
+        setIsRunning(false);
+      }
+      return;
+    }
+
     pendingExecutionRef.current = true;
     pendingResultRef.current = null;
     activeExecIdRef.current = null;

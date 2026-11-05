@@ -70,11 +70,40 @@ Want to run this yourself?
 1. **[Local Setup Guide](docs/LOCAL_SETUP.md)**: Instructions for running the entire stack locally with Docker Desktop.
 2. **[Free Public Deployment Guide](docs/DEPLOYMENT.md)**: How to host this securely on the public internet using Cloudflare Tunnels for free.
 
+### 🌐 Deployed on Vercel + Render (Free Tier)
+
+Hence-Code is optimized to run smoothly on free cloud hosting with zero server execution cost for supported interpreted languages.
+
+#### Architecture on Deployment:
+* **Browser-side Execution (Zero Server Cost):** JavaScript and Python execute directly inside the user's browser using Web Workers (isolated Blob URLs for JavaScript, official Pyodide WebAssembly engine for Python). This guarantees instant execution, zero cloud compute bill, and sandboxed client timeouts (5s for JS, 10s for Python).
+* **Backend Execution:** Compiled languages (Java, C++, etc.) route to the backend execution provider (Piston / Judge0).
+* **Self-Hosted Docker Features:** Shared interactive terminal sessions and per-workspace containers require access to a local Docker daemon socket. On cloud tiers (Vercel + Render) without Docker daemon privileges, these features are cleanly gated via the `VITE_DOCKER_FEATURES` frontend flag.
+
+#### Required Environment Variable Names (No values exposed):
+* **Frontend (Vercel):**
+  * `VITE_API_URL`
+  * `VITE_CLIENT_RUN` *(optional, default: `true`)*
+  * `VITE_DOCKER_FEATURES` *(optional, default: `false`)*
+* **Backend (Render):**
+  * `FRONTEND_URL`
+  * `SPRING_DATASOURCE_URL`
+  * `SPRING_DATASOURCE_USERNAME`
+  * `SPRING_DATASOURCE_PASSWORD`
+  * `SPRING_DATA_REDIS_HOST`
+  * `SPRING_DATA_REDIS_PORT`
+  * `SPRING_DATA_REDIS_PASSWORD`
+  * `JWT_SECRET`
+  * `EXECUTION_PISTON_URL` *(optional)*
+  * `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID`
+  * `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET`
+  * `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GITHUB_CLIENT_ID`
+  * `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GITHUB_CLIENT_SECRET`
+
 ## 🔒 Security Features
 
 Security was built-in from day one, achieving a 95/100 internal security audit score:
 *   **Fail-Fast Boot:** Application halts if cryptographic keys are weak or missing.
-*   **XSS Protection:** `localStorage` is disabled for auth; tokens use `HttpOnly`, `SameSite=Lax` cookies.
+*   **Dual Token & Cookie Security:** Authentication uses secure `HttpOnly`, `SameSite` cookies for REST APIs and session lifecycle, combined with an `accessToken` persisted in `localStorage` strictly for STOMP WebSocket `CONNECT` authorization frames. *Trade-off honesty:* Storing an access token in `localStorage` enables cross-domain STOMP WebSocket authentication, but carries the standard trade-off of accessibility to client scripts in the event of an XSS vulnerability. This is mitigated by short access token lifetimes (15 minutes), strict HttpOnly refresh token rotation, and CSP headers.
 *   **OAuth2:** Native Google and GitHub SSO integration.
 *   **Rate Limiting:** IP-based protection against brute-force (Login, Register, Password Reset).
 *   **Strict Headers:** CSP, HSTS, and X-Frame-Options configured via Spring Security.

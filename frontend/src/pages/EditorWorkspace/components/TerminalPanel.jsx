@@ -5,6 +5,7 @@ import 'xterm/css/xterm.css';
 import useAuthStore from '../../../store/authStore';
 
 const TerminalPanel = ({ roomId }) => {
+    const isDockerEnabled = import.meta.env.VITE_DOCKER_FEATURES === 'true';
     const { user } = useAuthStore();
     const terminalRef = useRef(null);
     const xtermRef = useRef(null);
@@ -13,7 +14,7 @@ const TerminalPanel = ({ roomId }) => {
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        if (!roomId || !terminalRef.current) return;
+        if (!isDockerEnabled || !roomId || !terminalRef.current) return;
 
         // Initialize XTerm
         const term = new Terminal({
@@ -121,7 +122,19 @@ const TerminalPanel = ({ roomId }) => {
                 terminalRef.current.innerHTML = '';
             }
         };
-    }, [roomId]);
+    }, [roomId, isDockerEnabled]);
+
+    if (!isDockerEnabled) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center text-white/50 select-none">
+                <span className="material-symbols-outlined text-[32px] text-white/30">terminal</span>
+                <p className="text-[13px] font-medium text-white/70">Workspace Terminal</p>
+                <p className="text-[11px] text-white/40 max-w-sm">
+                    Available only in the self-hosted version with Docker daemon enabled.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full bg-transparent">

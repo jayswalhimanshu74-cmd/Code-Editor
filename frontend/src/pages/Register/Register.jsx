@@ -14,6 +14,12 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState('');
   const [pwStrength, setPwStrength] = useState(0);
+  const [oauthWaking, setOauthWaking] = useState(false);
+
+  useEffect(() => {
+    // Wake up backend on Render during cold starts
+    fetch(`${getBackendUrl()}/actuator/health`).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let s = 0;
@@ -50,7 +56,10 @@ const Register = () => {
   };
 
   const handleOAuthLogin = (provider) => {
-    window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    setOauthWaking(true);
+    setTimeout(() => {
+      window.location.href = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    }, 100);
   };
 
   const displayError = localError || error;
@@ -229,6 +238,13 @@ const Register = () => {
                 Google
               </button>
             </div>
+
+            {oauthWaking && (
+              <div className="flex items-center justify-center gap-2 px-3 py-2 mt-4 bg-primary/10 border border-primary/25 rounded-xl text-primary text-[12px] font-medium text-center animate-pulse">
+                <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                Waking up the server, this can take up to a minute...
+              </div>
+            )}
             
             {/* Footer link */}
             <div className="mt-8 text-center">
