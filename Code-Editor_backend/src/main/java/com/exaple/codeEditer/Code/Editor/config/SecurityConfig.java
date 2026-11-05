@@ -32,143 +32,148 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-    private final UserDetailsService userDetailsService;
-    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
-    private final com.exaple.codeEditer.Code.Editor.security.CustomAccessDeniedHandler customAccessDeniedHandler;
-    private final com.exaple.codeEditer.Code.Editor.security.CustomOAuth2UserService customOAuth2UserService;
-    private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
-    private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
-    private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
+        private final JwtAuthFilter jwtAuthFilter;
+        private final UserDetailsService userDetailsService;
+        private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+        private final com.exaple.codeEditer.Code.Editor.security.CustomAccessDeniedHandler customAccessDeniedHandler;
+        private final com.exaple.codeEditer.Code.Editor.security.CustomOAuth2UserService customOAuth2UserService;
+        private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+        private final com.exaple.codeEditer.Code.Editor.security.OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+        private final com.exaple.codeEditer.Code.Editor.security.RateLimitFilter rateLimitFilter;
 
-    @Value("${app.frontend.url:http://localhost:5173}")
-    private String frontendUrl;
+        @Value("${app.frontend.url:http://localhost:5173}")
+        private String frontendUrl;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .headers(headers -> {
-                    headers.contentSecurityPolicy(csp -> csp.policyDirectives(
-                            "default-src 'self'; connect-src 'self' ws: wss: http: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"));
-                    headers.frameOptions(
-                            org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig::deny);
-                    headers.contentTypeOptions(org.springframework.security.config.Customizer.withDefaults());
-                    headers.httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000));
-                    headers.permissionsPolicy(pp -> pp.policy("geolocation=(), microphone=(), camera=()"));
-                    headers.referrerPolicy(referrer -> referrer.policy(
-                            org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
-                })
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(customAuthenticationEntryPoint)
-                        .accessDeniedHandler(customAccessDeniedHandler))
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                .headers(headers -> {
+                                        headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                                                        "default-src 'self'; connect-src 'self' ws: wss: http: https:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'"));
+                                        headers.frameOptions(
+                                                        org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig::deny);
+                                        headers.contentTypeOptions(
+                                                        org.springframework.security.config.Customizer.withDefaults());
+                                        headers.httpStrictTransportSecurity(
+                                                        hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000));
+                                        headers.permissionsPolicy(
+                                                        pp -> pp.policy("geolocation=(), microphone=(), camera=()"));
+                                        headers.referrerPolicy(referrer -> referrer.policy(
+                                                        org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+                                })
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(customAuthenticationEntryPoint)
+                                                .accessDeniedHandler(customAccessDeniedHandler))
+                                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/ws/**",
-                                "/oauth2/**",
-                                "/login/oauth2/**",
-                                "/actuator/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui.html")
-                        .permitAll()
-                        .requestMatchers("/api/yjs/**").authenticated()
-                        .anyRequest().authenticated())
-                .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler)
-                        .failureHandler(oAuth2AuthenticationFailureHandler))
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(
+                                                                "/api/auth/**",
+                                                                "/ws/**",
+                                                                "/oauth2/**",
+                                                                "/login/oauth2/**",
+                                                                "/actuator/**",
+                                                                "/swagger-ui/**",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-ui.html")
+                                                .permitAll()
+                                                .requestMatchers("/", "/health", "/favicon.ico").permitAll()
+                                                .requestMatchers("/api/yjs/**").authenticated()
+                                                .anyRequest().authenticated())
+                                .oauth2Login(oauth2 -> oauth2
+                                                .userInfoEndpoint(userInfo -> userInfo
+                                                                .userService(customOAuth2UserService))
+                                                .successHandler(oAuth2AuthenticationSuccessHandler)
+                                                .failureHandler(oAuth2AuthenticationFailureHandler))
+                                .authenticationProvider(authenticationProvider())
+                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
-
-    @Bean
-    public org.springframework.security.authentication.AuthenticationProvider authenticationProvider() {
-        org.springframework.security.authentication.dao.DaoAuthenticationProvider authProvider = new org.springframework.security.authentication.dao.DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-    @Bean
-    public MethodSecurityExpressionHandler methodSecurityExpressionHandler(PermissionEvaluator permissionEvaluator) {
-        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
-        expressionHandler.setPermissionEvaluator(permissionEvaluator);
-        return expressionHandler;
-    }
-
-    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
-    private String allowedOriginsProperty;
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-
-        List<String> patterns = new java.util.ArrayList<>();
-
-        // Load configured allowed origins
-        if (allowedOriginsProperty != null && !allowedOriginsProperty.isBlank()) {
-            patterns.addAll(
-                    java.util.Arrays.stream(allowedOriginsProperty.split(","))
-                            .map(String::trim)
-                            .filter(s -> !s.isEmpty())
-                            .toList());
+                return http.build();
         }
 
-        // Always allow the configured frontend URL
-        if (frontendUrl != null && !frontendUrl.isBlank()
-                && !patterns.contains(frontendUrl)) {
-            patterns.add(frontendUrl);
+        @Bean
+        public org.springframework.security.authentication.AuthenticationProvider authenticationProvider() {
+                org.springframework.security.authentication.dao.DaoAuthenticationProvider authProvider = new org.springframework.security.authentication.dao.DaoAuthenticationProvider();
+                authProvider.setUserDetailsService(userDetailsService);
+                authProvider.setPasswordEncoder(passwordEncoder());
+                return authProvider;
         }
 
-        // Local development
-        if (!patterns.contains("http://localhost:5173")) {
-            patterns.add("http://localhost:5173");
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
         }
 
-        // Vercel preview deployments
-        if (!patterns.contains("https://*.vercel.app")) {
-            patterns.add("https://*.vercel.app");
+        @Bean
+        public AuthenticationManager authenticationManager(
+                        AuthenticationConfiguration config) throws Exception {
+                return config.getAuthenticationManager();
         }
 
-        config.setAllowedOriginPatterns(patterns);
+        @Bean
+        public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
+                        PermissionEvaluator permissionEvaluator) {
+                DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
+                expressionHandler.setPermissionEvaluator(permissionEvaluator);
+                return expressionHandler;
+        }
 
-        config.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
+        private String allowedOriginsProperty;
 
-        config.setAllowedHeaders(List.of("*"));
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration config = new CorsConfiguration();
 
-        config.setExposedHeaders(
-                List.of("Authorization", "X-Correlation-ID",
-                        "X-Request-ID", "X-Trace-ID"));
+                List<String> patterns = new java.util.ArrayList<>();
 
-        config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
+                // Load configured allowed origins
+                if (allowedOriginsProperty != null && !allowedOriginsProperty.isBlank()) {
+                        patterns.addAll(
+                                        java.util.Arrays.stream(allowedOriginsProperty.split(","))
+                                                        .map(String::trim)
+                                                        .filter(s -> !s.isEmpty())
+                                                        .toList());
+                }
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                // Always allow the configured frontend URL
+                if (frontendUrl != null && !frontendUrl.isBlank()
+                                && !patterns.contains(frontendUrl)) {
+                        patterns.add(frontendUrl);
+                }
 
-        source.registerCorsConfiguration("/**", config);
+                // Local development
+                if (!patterns.contains("http://localhost:5173")) {
+                        patterns.add("http://localhost:5173");
+                }
 
-        return source;
-    }
+                // Vercel preview deployments
+                if (!patterns.contains("https://*.vercel.app")) {
+                        patterns.add("https://*.vercel.app");
+                }
+
+                config.setAllowedOriginPatterns(patterns);
+
+                config.setAllowedMethods(
+                                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+                config.setAllowedHeaders(List.of("*"));
+
+                config.setExposedHeaders(
+                                List.of("Authorization", "X-Correlation-ID",
+                                                "X-Request-ID", "X-Trace-ID"));
+
+                config.setAllowCredentials(true);
+                config.setMaxAge(3600L);
+
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+                source.registerCorsConfiguration("/**", config);
+
+                return source;
+        }
 
 }

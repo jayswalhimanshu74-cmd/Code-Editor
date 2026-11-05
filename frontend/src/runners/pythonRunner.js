@@ -1,9 +1,11 @@
 /**
- * Client-side Python runner using Pyodide inside a Web Worker.
- * Loads Pyodide lazily on first Python run from official pinned CDN,
- * captures stdout/stderr, enforces a 10s execution timeout,
- * provides clear guidance if interactive input() is used,
- * and caps output at ~100 KB.
+ * Hardened Client-side Python runner using Pyodide inside a Web Worker
+ * hosted within a sandboxed iframe (sandbox="allow-scripts" ONLY).
+ *
+ * This ensures the execution context has an opaque origin ("null") with
+ * zero access to the application's origin, cookies, localStorage, or API credentials.
+ * Loads Pyodide lazily on first run from official pinned CDN, enforces a 10s timeout,
+ * provides clear guidance if interactive input() is called, and caps output at ~100 KB.
  */
 
 const PYODIDE_VERSION = '0.26.4';
@@ -15,6 +17,8 @@ export const runPython = (code, stdin = '', onProgress = null) => {
     let stdout = '';
     let stderr = '';
     let settled = false;
+
+    const runId = 'py-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
     const appendStdout = (str) => {
       if (stdout.length < MAX_OUTPUT) {
@@ -86,28 +90,68 @@ export const runPython = (code, stdin = '', onProgress = null) => {
       };
     `;
 
-    const blob = new Blob([workerScript], { type: 'application/javascript' });
-    const workerUrl = URL.createObjectURL(blob);
-    let worker;
+    const safeWorkerScript = JSON.stringify(workerScript).replace(/<\/script/gi, '<\\/script');
 
-    try {
-      worker = new Worker(workerUrl);
-    } catch (err) {
-      URL.revokeObjectURL(workerUrl);
-      return resolve({
-        stdout: '',
-        stderr: `Failed to initialize Python Web Worker: ${err.message}`,
-        exitCode: 1,
-      });
-    }
+    const iframeHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<script>
+  (function() {
+    var worker = null;
+    var blobUrl = null;
+
+    window.addEventListener('message', function(event) {
+      var data = event.data;
+      if (!data || data.type !== 'init') return;
+      var id = data.id;
+
+      try {
+        var workerContent = ${safeWorkerScript};
+        var blob = new Blob([workerContent], { type: 'application/javascript' });
+        blobUrl = URL.createObjectURL(blob);
+        worker = new Worker(blobUrl);
+
+        worker.onmessage = function(e) {
+          window.parent.postMessage(Object.assign({ id: id }, e.data), '*');
+        };
+
+        worker.onerror = function(e) {
+          window.parent.postMessage({
+            id: id,
+            type: 'stderr',
+            text: 'Python Worker Error: ' + (e.message || 'Unknown runtime error') + '\\n'
+          }, '*');
+          window.parent.postMessage({ id: id, type: 'done', exitCode: 1 }, '*');
+        };
+
+        worker.postMessage({ code: data.code, stdin: data.stdin, cdnBase: data.cdnBase });
+      } catch (err) {
+        window.parent.postMessage({
+          id: id,
+          type: 'stderr',
+          text: 'Python Sandbox Initialization Error: ' + (err.message || String(err)) + '\\n'
+        }, '*');
+        window.parent.postMessage({ id: id, type: 'done', exitCode: 1 }, '*');
+      }
+    });
+
+    window.parent.postMessage({ type: 'iframe_ready' }, '*');
+  })();
+</script>
+</body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.setAttribute('sandbox', 'allow-scripts');
+    iframe.srcdoc = iframeHtml;
 
     const cleanup = () => {
       if (timer) clearTimeout(timer);
-      try { worker.terminate(); } catch {
-        // Ignore termination error
-      }
-      try { URL.revokeObjectURL(workerUrl); } catch {
-        // Ignore revocation error
+      window.removeEventListener('message', handleMessage);
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
       }
     };
 
@@ -123,7 +167,32 @@ export const runPython = (code, stdin = '', onProgress = null) => {
       finish(124);
     }, 10000);
 
-    worker.onmessage = (event) => {
+    let sent = false;
+    const sendInit = () => {
+      if (sent) return;
+      if (!iframe.contentWindow) return;
+      sent = true;
+      iframe.contentWindow.postMessage({
+        type: 'init',
+        id: runId,
+        code,
+        stdin,
+        cdnBase: PYODIDE_CDN_BASE,
+      }, '*');
+    };
+
+    const handleMessage = (event) => {
+      // Security: Only accept messages from this iframe's contentWindow
+      if (event.source !== iframe.contentWindow) return;
+
+      if (event.data?.type === 'iframe_ready') {
+        sendInit();
+        return;
+      }
+
+      // Security: Per-run random id validation
+      if (!event.data || event.data.id !== runId) return;
+
       const msg = event.data;
       if (msg.type === 'status') {
         if (onProgress) onProgress(msg.text);
@@ -136,12 +205,21 @@ export const runPython = (code, stdin = '', onProgress = null) => {
       }
     };
 
-    worker.onerror = (err) => {
-      appendStderr(`Python Worker Error: ${err.message || 'Worker error'}\n`);
-      finish(1);
+    window.addEventListener('message', handleMessage);
+
+    iframe.onload = () => {
+      sendInit();
     };
 
-    worker.postMessage({ code, stdin, cdnBase: PYODIDE_CDN_BASE });
+    try {
+      document.body.appendChild(iframe);
+    } catch (err) {
+      cleanup();
+      return resolve({
+        stdout: '',
+        stderr: `Failed to attach sandbox iframe: ${err.message}`,
+        exitCode: 1,
+      });
+    }
   });
 };
-
