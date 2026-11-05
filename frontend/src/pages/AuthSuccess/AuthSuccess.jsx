@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
 
 const AuthSuccess = () => {
@@ -16,6 +17,23 @@ const AuthSuccess = () => {
 
         const { isAuthenticated } = useAuthStore.getState();
         if (isAuthenticated) {
+          try {
+            const { data } = await api.post('/auth/refresh');
+            if (data?.accessToken) {
+              localStorage.setItem('accessToken', data.accessToken);
+            }
+            if (data?.refreshToken) {
+              localStorage.setItem('refreshToken', data.refreshToken);
+            }
+            const { wsService } = await import('../../api/websocketService');
+            wsService.connect(
+              () => console.log('[Auth] WS connected'),
+              () => console.log('[Auth] WS disconnected')
+            );
+          } catch (tokenErr) {
+            console.warn('[AuthSuccess] Token fetch or WS connect failed:', tokenErr);
+          }
+
           setStatus('success');
           setTimeout(() => {
             navigate('/dashboard', { replace: true });

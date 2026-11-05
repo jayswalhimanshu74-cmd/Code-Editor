@@ -10,7 +10,9 @@ class WebSocketService {
         this.onConnectCallbacks = [];
     }
 
+
     connect(onConnected, onDisconnected) {
+
 
         if (this.client?.active || this.connected) {
             console.log("[WS] Already connected");
@@ -77,11 +79,8 @@ class WebSocketService {
 
             beforeConnect: () => {
                 const token = localStorage.getItem('accessToken');
-                if (token) {
-                    this.client.connectHeaders = {
-                        Authorization: `Bearer ${token}`
-                    };
-                }
+                if (!token) console.warn('[WS] No accessToken in localStorage, connecting without auth');
+                this.client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
             },
         });
 
@@ -90,7 +89,7 @@ class WebSocketService {
 
     subscribe(topic, callback, isBinary = false) {
         if (!callback || typeof callback !== 'function') {
-            return () => {};
+            return () => { };
         }
 
         let entry = this.subscriptions.get(topic);
