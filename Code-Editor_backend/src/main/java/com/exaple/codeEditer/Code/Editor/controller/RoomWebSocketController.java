@@ -9,11 +9,13 @@ import com.exaple.codeEditer.Code.Editor.entity.ChatMessage;
 import com.exaple.codeEditer.Code.Editor.repository.ChatMessageRepository;
 import com.exaple.codeEditer.Code.Editor.repository.FileRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomRepository;
+
 import com.exaple.codeEditer.Code.Editor.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import com.exaple.codeEditer.Code.Editor.service.AuditLogService;
 import com.exaple.codeEditer.Code.Editor.service.FileEditLogService;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -37,7 +39,7 @@ public class RoomWebSocketController {
     private final WorkspaceSyncService workspaceSyncService;
 
     // ── Code change ───────────────────────────────────────
-    // Client sends to  : /app/room/{roomId}/code
+    // Client sends to : /app/room/{roomId}/code
     // Server pushes to : /topic/room/{roomId}/code
     @MessageMapping("/room/{roomId}/code")
     public void handleCodeChange(
@@ -51,26 +53,24 @@ public class RoomWebSocketController {
                 fileRepository.save(file);
 
                 fileEditLogService.logEdit(
-                file.getId(),
-                UUID.fromString(roomId),
-                event.getSenderEmail(),
-                file.getName(),
-                event.getContent()
-            );
+                        file.getId(),
+                        UUID.fromString(roomId),
+                        event.getSenderEmail(),
+                        file.getName(),
+                        event.getContent());
             });
         }
 
         event.setTimestamp(System.currentTimeMillis());
 
         redisPublisher.publish(
-                "/topic/room/" + roomId + "/code", event
-        );
+                "/topic/room/" + roomId + "/code", event);
 
         log.debug("Code change in room {} by {}", roomId, event.getSenderEmail());
     }
 
     // ── Chat message ──────────────────────────────────────
-    // Client sends to  : /app/room/{roomId}/chat
+    // Client sends to : /app/room/{roomId}/chat
     // Server pushes to : /topic/room/{roomId}/chat
     @MessageMapping("/room/{roomId}/chat")
     public void handleChat(
@@ -92,14 +92,13 @@ public class RoomWebSocketController {
         event.setTimestamp(System.currentTimeMillis());
 
         redisPublisher.publish(
-                "/topic/room/" + roomId + "/chat", event
-        );
+                "/topic/room/" + roomId + "/chat", event);
 
         log.debug("Chat in room {} by {}", roomId, event.getSenderEmail());
     }
 
     // ── User join ─────────────────────────────────────────
-    // Client sends to  : /app/room/{roomId}/join
+    // Client sends to : /app/room/{roomId}/join
     // Server pushes to : /topic/room/{roomId}/presence
     @MessageMapping("/room/{roomId}/join")
     public void handleUserJoin(
@@ -117,18 +116,18 @@ public class RoomWebSocketController {
         event.setTimestamp(System.currentTimeMillis());
 
         redisPublisher.publish(
-                "/topic/room/" + roomId + "/presence", event
-        );
+                "/topic/room/" + roomId + "/presence", event);
 
         if (event.getEmail() != null || event.getUsername() != null) {
-            auditLogService.log("ROOM_JOIN", "ROOM", roomId, "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " joined room");
+            auditLogService.log("ROOM_JOIN", "ROOM", roomId,
+                    "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " joined room");
         }
 
         log.info("User {} joined room {}", event.getUsername(), roomId);
     }
 
     // ── User leave ────────────────────────────────────────
-    // Client sends to  : /app/room/{roomId}/leave
+    // Client sends to : /app/room/{roomId}/leave
     // Server pushes to : /topic/room/{roomId}/presence
     @MessageMapping("/room/{roomId}/leave")
     public void handleUserLeave(
@@ -139,15 +138,16 @@ public class RoomWebSocketController {
         event.setTimestamp(System.currentTimeMillis());
 
         redisPublisher.publish(
-                "/topic/room/" + roomId + "/presence", event
-        );
+                "/topic/room/" + roomId + "/presence", event);
 
         if (event.getEmail() != null || event.getUsername() != null) {
-            auditLogService.log("ROOM_LEAVE", "ROOM", roomId, "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " left room");
+            auditLogService.log("ROOM_LEAVE", "ROOM", roomId,
+                    "User " + (event.getUsername() != null ? event.getUsername() : event.getEmail()) + " left room");
         }
 
         log.info("User {} left room {}", event.getUsername(), roomId);
     }
+
     @MessageMapping("/room/{roomId}/cursor")
     public void handleCursor(
             @DestinationVariable String roomId,
@@ -156,7 +156,6 @@ public class RoomWebSocketController {
         event.setTimestamp(System.currentTimeMillis());
 
         redisPublisher.publish(
-                "/topic/room/" + roomId + "/cursors", event
-    );
-}
+                "/topic/room/" + roomId + "/cursors", event);
+    }
 }
