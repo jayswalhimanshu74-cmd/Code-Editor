@@ -8,6 +8,8 @@ class WebSocketService {
         this.subscriptions = new Map();
         this.connected = false;
         this.onConnectCallbacks = [];
+        this.reconnectCallbacks = new Set();
+        this.hasConnectedOnce = false;
     }
 
 
@@ -26,11 +28,22 @@ class WebSocketService {
             webSocketFactory: () => new SockJS(`${baseUrl}/ws`),
 
             reconnectDelay: 5000,
+            heartbeatIncoming: 10000,
+            heartbeatOutgoing: 10000,
             debug: (str) => console.log("[WS DEBUG]", str),
 
             onConnect: () => {
                 this.connected = true;
                 console.log("[WS] Connected to server");
+
+                // If this is a reconnect (not first connect), notify reconnect listeners
+                if (this.hasConnectedOnce) {
+                    console.log("[WS] Reconnected — notifying reconnect listeners");
+                    this.reconnectCallbacks.forEach(cb => {
+                        try { cb(); } catch (err) { console.error("[WS] Reconnect callback error:", err); }
+                    });
+                }
+                this.hasConnectedOnce = true;
 
                 // Re-subscribe all active topics
                 this.subscriptions.forEach((entry, topic) => {
@@ -85,6 +98,12 @@ class WebSocketService {
         });
 
         this.client.activate();
+    }
+
+    onReconnect(callback) {
+        if (typeof callback !== 'function') return () => {};
+        this.reconnectCallbacks.add(callback);
+        return () => this.reconnectCallbacks.delete(callback);
     }
 
     subscribe(topic, callback, isBinary = false) {
@@ -205,6 +224,7 @@ class WebSocketService {
             this.client = null;
         }
         this.connected = false;
+        this.hasConnectedOnce = false;
         console.log("[WS] Manually disconnected");
     }
 
