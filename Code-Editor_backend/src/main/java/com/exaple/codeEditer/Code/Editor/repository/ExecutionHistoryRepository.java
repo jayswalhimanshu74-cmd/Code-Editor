@@ -2,6 +2,7 @@ package com.exaple.codeEditer.Code.Editor.repository;
 
 import com.exaple.codeEditer.Code.Editor.entity.ExecutionHistory;
 import com.exaple.codeEditer.Code.Editor.entity.Room;
+import com.exaple.codeEditer.Code.Editor.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -24,6 +25,18 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
         countQuery = "select count(eh) from ExecutionHistory eh where eh.room = :room"
     )
     Page<ExecutionHistory> findByRoomWithAssociations(@org.springframework.data.repository.query.Param("room") Room room, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "select eh from ExecutionHistory eh join fetch eh.runBy join fetch eh.room where eh.runBy = :user order by eh.executedAt desc",
+        countQuery = "select count(eh) from ExecutionHistory eh where eh.runBy = :user"
+    )
+    Page<ExecutionHistory> findByUserWithAssociations(@org.springframework.data.repository.query.Param("user") User user, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "select eh from ExecutionHistory eh join fetch eh.runBy join fetch eh.room where eh.runBy = :user and eh.room = :room order by eh.executedAt desc",
+        countQuery = "select count(eh) from ExecutionHistory eh where eh.runBy = :user and eh.room = :room"
+    )
+    Page<ExecutionHistory> findByUserAndRoomWithAssociations(@org.springframework.data.repository.query.Param("user") User user, @org.springframework.data.repository.query.Param("room") Room room, Pageable pageable);
 
     List<ExecutionHistory> findByStatusAndExecutedAtBefore(ExecutionHistory.ExecutionStatus status,
             LocalDateTime threshold);

@@ -67,7 +67,9 @@ public class ExecutionHistory {
         SUCCESS,
         FAILED,
         TIMEOUT,
-        KILLED
+        KILLED,
+        SERVICE_UNAVAILABLE,
+        COMPILATION_ERROR
     }
 
     @CreationTimestamp
