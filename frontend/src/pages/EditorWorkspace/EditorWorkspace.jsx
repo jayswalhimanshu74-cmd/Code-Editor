@@ -113,7 +113,7 @@ const UserAvatar = ({ user, isCurrentUser = false }) => {
 
 
 // ── Output Panel ──────────────────────────────────────────────────────────────
-const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, setShowStdin, onRun }) => (
+const OutputPanel = ({ output, isRunning, isPythonLoading, onClear, stdin, setStdin, showStdin, setShowStdin, onRun }) => (
   <div className="h-full flex flex-col overflow-hidden">
 
     {/* Header */}
@@ -154,10 +154,10 @@ const OutputPanel = ({ output, isRunning, onClear, stdin, setStdin, showStdin, s
 
     {/* Output */}
     <div className="flex-1 min-h-0 overflow-y-auto p-3 bg-black/30">
-      {isRunning ? (
+      {isRunning || isPythonLoading ? (
         <div className="flex items-center gap-2 text-on-surface-variant text-[11px] font-code-md">
           <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
-          Executing...
+          {isPythonLoading ? 'Loading Python runtime...' : 'Executing...'}
         </div>
       ) : output ? (
         <pre className="text-on-surface text-[11px] font-code-md whitespace-pre-wrap leading-relaxed">
@@ -663,6 +663,7 @@ const EditorWorkspace = () => {
   const [isYjsLoading, setIsYjsLoading] = useState(false);
   const [yjsError, setYjsError] = useState(null);
   const [yjsRetryCount, setYjsRetryCount] = useState(0);
+  const [isPythonLoading, setIsPythonLoading] = useState(false);
 
   // Snapshot state
   const [snapshots, setSnapshots] = useState([]);
@@ -1306,7 +1307,7 @@ const EditorWorkspace = () => {
   };
 
   const handleRunWithCode = async (currentCode) => {
-    if (isRunning) return;
+    if (isRunning || isPythonLoading) return;
 
     // Client-side execution branch for JavaScript & Python (gated behind VITE_CLIENT_RUN, default true)
     const isClientRunEnabled = import.meta.env.VITE_CLIENT_RUN !== 'false';
@@ -1323,8 +1324,13 @@ const EditorWorkspace = () => {
           const { runJs } = await import('../../runners/jsRunner');
           result = await runJs(currentCode, stdin);
         } else if (fileLanguage === 'python') {
-          setOutput('Loading Python runtime...\n');
-          const { runPython } = await import('../../runners/pythonRunner');
+          const { runPython, isPythonReady, preloadPython } = await import('../../runners/pythonRunner');
+          if (!isPythonReady()) {
+            setOutput('Loading Python runtime...\n');
+            setIsPythonLoading(true);
+            await preloadPython();
+            setIsPythonLoading(false);
+          }
           result = await runPython(currentCode, stdin, (statusMsg) => {
             setOutput((prev) => prev + statusMsg);
           });
@@ -1436,6 +1442,25 @@ const EditorWorkspace = () => {
   const fileLanguage = Object.keys(EXTENSIONS).find(key => EXTENSIONS[key] === fileExt) || currentRoom?.language || 'javascript';
 
   const monacoLanguage = MONACO_LANGUAGE_MAP[fileLanguage] || 'javascript';
+
+  // Preload Pyodide lazily when a Python file or workspace is active
+  useEffect(() => {
+    const isClientRunEnabled = import.meta.env.VITE_CLIENT_RUN !== 'false';
+    if (isClientRunEnabled && (fileLanguage === 'python' || fileExt === 'py')) {
+      import('../../runners/pythonRunner').then(({ preloadPython, isPythonReady }) => {
+        if (!isPythonReady()) {
+          setIsPythonLoading(true);
+          preloadPython()
+            .catch((err) => {
+              console.warn('[Runner] Pyodide preload error:', err);
+            })
+            .finally(() => {
+              setIsPythonLoading(false);
+            });
+        }
+      });
+    }
+  }, [fileLanguage, fileExt]);
 
   const handleEditorBeforeMount = (monaco) => {
     monaco.editor.defineTheme('hence-dark', {
@@ -1561,13 +1586,13 @@ const EditorWorkspace = () => {
         {/* Run button */}
         <button
           onClick={handleRun}
-          disabled={isRunning}
+          disabled={isRunning || isPythonLoading}
           className="flex items-center gap-1.5 bg-gradient-to-r from-[#0070f3] to-[#00f0ff] hover:brightness-110 hover:shadow-lg hover:shadow-blue-500/30 text-white px-4 py-1.5 rounded-lg font-label-sm text-[11px] font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-60 flex-shrink-0 tracking-tight"
         >
           <span className="material-symbols-outlined text-[14px]">
-            {isRunning ? 'progress_activity' : 'play_arrow'}
+            {isPythonLoading || isRunning ? 'progress_activity' : 'play_arrow'}
           </span>
-          {isRunning ? 'Running...' : 'Run'}
+          {isPythonLoading ? 'Loading Python runtime...' : isRunning ? 'Running...' : 'Run'}
         </button>
       </header>
 
@@ -1824,6 +1849,7 @@ const EditorWorkspace = () => {
                 <OutputPanel
                   output={output}
                   isRunning={isRunning}
+                  isPythonLoading={isPythonLoading}
                   onClear={() => setOutput('')}
                   stdin={stdin}
                   setStdin={setStdin}
@@ -1869,12 +1895,14 @@ const EditorWorkspace = () => {
 
         <button
           onClick={handleRun}
-          disabled={isRunning}
+          disabled={isRunning || isPythonLoading}
           className="ml-2 flex items-center gap-1 text-white/50 hover:text-white transition-colors disabled:opacity-50"
           title="Run (Ctrl+Enter)"
         >
-          <span className="material-symbols-outlined text-[12px]">play_arrow</span>
-          Run
+          <span className="material-symbols-outlined text-[12px]">
+            {isPythonLoading || isRunning ? 'progress_activity' : 'play_arrow'}
+          </span>
+          {isPythonLoading ? 'Loading runtime...' : 'Run'}
         </button>
       </footer>
     </div>
