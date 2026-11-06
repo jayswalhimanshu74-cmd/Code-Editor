@@ -880,17 +880,19 @@ const EditorWorkspace = () => {
         return;
       }
 
-      // Terminal Execution Statuses (SUCCESS / FAILED / TIMEOUT / ERROR / COMPILATION_ERROR)
+      // Terminal Execution Statuses (SUCCESS / FAILED / TIMEOUT / ERROR / COMPILATION_ERROR / SERVICE_UNAVAILABLE)
       if (
         status === "SUCCESS" ||
         status === "FAILED" ||
         status === "TIMEOUT" ||
         status === "ERROR" ||
-        status === "COMPILATION_ERROR"
+        status === "COMPILATION_ERROR" ||
+        status === "SERVICE_UNAVAILABLE"
       ) {
         setRightTab("output");
 
         let combinedOutput = "";
+        const isUnavailable = status === "SERVICE_UNAVAILABLE" || (msg.exitCode != null && msg.exitCode >= 500) || (msg.stderr && msg.stderr.includes("Circuit Breaker Fallback"));
         if (msg.stdout && msg.stderr) {
           combinedOutput = `${msg.stdout}\n${msg.stderr}`;
         } else if (msg.stdout) {
@@ -901,6 +903,10 @@ const EditorWorkspace = () => {
           combinedOutput = msg.data;
         } else {
           combinedOutput = status === "SUCCESS" ? "Program executed with no output." : `Execution ended with status: ${status}`;
+        }
+
+        if (isUnavailable && !combinedOutput.startsWith("Service unavailable:")) {
+          combinedOutput = `Service unavailable: ${combinedOutput}`;
         }
 
         setOutput(combinedOutput);
@@ -1318,6 +1324,7 @@ const EditorWorkspace = () => {
       setOutput('');
       setRightTab('output');
 
+      const startTime = performance.now();
       try {
         let result;
         if (fileLanguage === 'javascript') {
@@ -1336,6 +1343,8 @@ const EditorWorkspace = () => {
           });
         }
 
+        const durationMs = Math.round(performance.now() - startTime);
+
         let combined = '';
         if (result.stdout && result.stderr) {
           combined = `${result.stdout}\n${result.stderr}`;
@@ -1349,8 +1358,48 @@ const EditorWorkspace = () => {
 
         combined += '\n\n[Ran in your browser (JavaScript/Python only)]';
         setOutput(combined);
+
+        // Determine status label
+        let runStatus = 'Accepted';
+        if (result.exitCode === 124 || result.stderr?.includes('[Execution timed out')) {
+          runStatus = 'Time Limit Exceeded';
+        } else if (result.exitCode !== 0) {
+          runStatus = 'Runtime Error';
+        }
+
+        // Save browser run to backend history
+        try {
+          await executionService.recordExecution(roomId, {
+            fileId: activeFile?.id,
+            language: fileLanguage,
+            sourceCode: currentCode,
+            stdout: result.stdout || '',
+            stderr: result.stderr || '',
+            status: runStatus,
+            durationMs,
+            exitCode: result.exitCode ?? 0,
+          });
+        } catch (recErr) {
+          console.warn('Failed to record browser execution history:', recErr);
+        }
       } catch (err) {
-        setOutput(`Execution failed: ${err.message}\n\n[Ran in your browser (JavaScript/Python only)]`);
+        const durationMs = Math.round(performance.now() - startTime);
+        const errMsg = err.message || String(err);
+        setOutput(`Execution failed: ${errMsg}\n\n[Ran in your browser (JavaScript/Python only)]`);
+        try {
+          await executionService.recordExecution(roomId, {
+            fileId: activeFile?.id,
+            language: fileLanguage,
+            sourceCode: currentCode,
+            stdout: '',
+            stderr: errMsg,
+            status: 'Runtime Error',
+            durationMs,
+            exitCode: 1,
+          });
+        } catch (recErr) {
+          console.warn('Failed to record browser execution history:', recErr);
+        }
       } finally {
         setIsRunning(false);
       }
@@ -1394,9 +1443,11 @@ const EditorWorkspace = () => {
           status === "FAILED" ||
           status === "TIMEOUT" ||
           status === "ERROR" ||
-          status === "COMPILATION_ERROR"
+          status === "COMPILATION_ERROR" ||
+          status === "SERVICE_UNAVAILABLE"
         ) {
           let combinedOutput = "";
+          const isUnavailable = status === "SERVICE_UNAVAILABLE" || (msg.exitCode != null && msg.exitCode >= 500) || (msg.stderr && msg.stderr.includes("Circuit Breaker Fallback"));
           if (msg.stdout && msg.stderr) {
             combinedOutput = `${msg.stdout}\n${msg.stderr}`;
           } else if (msg.stdout) {
@@ -1409,16 +1460,42 @@ const EditorWorkspace = () => {
             combinedOutput = status === "SUCCESS" ? "Program executed with no output." : `Execution ended with status: ${status}`;
           }
 
+          if (isUnavailable && !combinedOutput.startsWith("Service unavailable:")) {
+            combinedOutput = `Service unavailable: ${combinedOutput}`;
+          }
+
           setOutput(combinedOutput);
           setIsRunning(false);
           pendingExecutionRef.current = false;
         }
       }
     } catch (err) {
-      setOutput('Failed to trigger execution: ' + (err.response?.data?.message || err.message));
+      const is5xxOrNetwork = !err.response || err.response.status >= 500;
+      const errorMsg = is5xxOrNetwork
+        ? 'Service unavailable: ' + (err.response?.data?.message || err.message || 'Execution engine is temporarily unavailable.')
+        : 'Failed to trigger execution: ' + (err.response?.data?.message || err.message);
+
+      setOutput(errorMsg);
       setIsRunning(false);
       pendingExecutionRef.current = false;
       pendingResultRef.current = null;
+
+      if (is5xxOrNetwork) {
+        try {
+          await executionService.recordExecution(roomId, {
+            fileId: activeFile?.id,
+            language: fileLanguage,
+            sourceCode: currentCode,
+            stdout: '',
+            stderr: errorMsg,
+            status: 'Service unavailable',
+            durationMs: 0,
+            exitCode: err.response?.status || 503,
+          });
+        } catch (recErr) {
+          console.warn('Failed to record service unavailable execution:', recErr);
+        }
+      }
     }
   };
 

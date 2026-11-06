@@ -1,33 +1,36 @@
 import api from './axios';
 
-
 export const executionService = {
-
-
-// POST /api/rooms/{roomId}/execute
-// Sends code to backend -> Piston API -> returns output
-
-
+    // POST /api/rooms/{roomId}/execute
+    // Sends code to backend -> returns async execution ID
     execute: (roomId, sourceCode, language, stdin = "") => {
-        console.log({
-            roomId,
+        return api.post(`/rooms/${roomId}/execute`, {
             sourceCode,
             language,
-            stdin
-        });
-
-        return api.post(`/rooms/${roomId}/execute`, {
-            sourceCode, // the code string
-            language, // e.g. "python", "javascript"
-            stdin, // optional input for the program
+            stdin,
         });
     },
 
-// GET /api/rooms/{roomId}/executions?page=0&size=20
-// Returns paginated execution history
+    // POST /api/rooms/{roomId}/executions
+    // Saves a completed execution run (e.g. browser JS/Python or recorded failures)
+    recordExecution: (roomId, executionData) => {
+        return api.post(`/rooms/${roomId}/executions`, executionData);
+    },
 
-getHistory: (roomId, page = 0, size = 20) =>
-api.get(`/rooms/${roomId}/executions`, {
-    params: { page, size }
-}),
+    // GET /api/executions (or /api/rooms/{roomId}/executions)
+    // When roomId is null/undefined/empty: fetches all runs across all rooms for current user
+    // When roomId is passed: fetches runs for that room
+    getHistory: (roomIdOrOptions, page = 0, size = 20) => {
+        if (typeof roomIdOrOptions === 'object' && roomIdOrOptions !== null) {
+            const { roomId, page: p = 0, size: s = 20 } = roomIdOrOptions;
+            if (roomId) {
+                return api.get(`/executions`, { params: { roomId, page: p, size: s } });
+            }
+            return api.get(`/executions`, { params: { page: p, size: s } });
+        }
+        if (roomIdOrOptions) {
+            return api.get(`/rooms/${roomIdOrOptions}/executions`, { params: { page, size } });
+        }
+        return api.get(`/executions`, { params: { page, size } });
+    },
 };
