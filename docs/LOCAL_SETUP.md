@@ -6,9 +6,9 @@ Follow these steps to run the Hence-Code locally for development and testing.
 
 Ensure you have the following installed on your machine:
 1. **Java 22** (JDK)
-2. **Node.js** (v18+)
-3. **Docker Desktop** (Must be running)
-4. **Maven** (Optional, but recommended)
+2. **Node.js** (v18+ or v20+)
+3. **Docker Desktop** (Optional for basic editing; required for local containerized terminal execution)
+4. **Maven** (Optional, `./mvnw` is included)
 
 ## 1. Database & Infrastructure Setup (Docker Compose)
 

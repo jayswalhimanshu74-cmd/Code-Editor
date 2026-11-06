@@ -8,25 +8,34 @@ Hence-Code uses a modern, distributed architecture designed for real-time collab
 
 ## Component Breakdown
 
-### 1. Frontend (React)
-- **State Management**: `Zustand` manages UI state and authentication status.
-- **Editor**: `CodeMirror 6` combined with `y-codemirror.next` provides the editing surface.
-- **Real-Time Sync**: The `Yjs` CRDT engine runs in the browser, tracking local changes and resolving conflicts from remote users.
-- **Terminal**: `Xterm.js` renders a live pseudo-terminal connection to the backend.
+### 1. Frontend (React 19)
+- **Editor**: `Monaco Editor` (`@monaco-editor/react`) coupled with `y-monaco` (`MonacoBinding`) provides the collaborative code editing surface.
+- **State Management**: `Zustand` manages UI state, room configurations, and authentication lifecycle.
+- **Real-Time Sync**: The `Yjs` CRDT engine runs in the browser, tracking local edits and resolving concurrent changes deterministically using a subscribe-first, fetch, flush, and bind lifecycle.
+- **Client Execution**:
+  - Python: Official `Pyodide` WebAssembly engine running in a dedicated Web Worker ($10\text{s}$ timeout).
+  - JavaScript: Sandboxed Web Worker hosted in a restricted iframe (`sandbox="allow-scripts"` only, $5\text{s}$ timeout).
+- **Terminal (Optional)**: `Xterm.js` renders a live pseudo-terminal connection to a container runtime when connected to a local Docker daemon (gated on cloud deployments via `VITE_DOCKER_FEATURES`).
 
-### 2. Backend (Spring Boot)
-- **REST API**: Handles workspace management, snapshot persistence, and file CRUD operations.
-- **Authentication**: `Spring Security` issues and validates stateless JWTs stored securely in `HttpOnly` cookies. OAuth2 integration handles Google/GitHub login.
-- **WebSockets**: Custom `WebSocketHandler` classes route binary CRDT payloads and terminal keystrokes.
-- **Docker Integration**: Uses `docker-java` to interact with the local or remote Docker daemon. It creates containers based on the requested runtime (Node, Python, Java) and streams execution results back.
+### 2. Backend (Spring Boot 3.3.5 / Java 22)
+- **REST API**: Handles workspace lifecycle, file/directory CRUD, snapshots, execution recording, and health checks.
+- **Authentication**: Dual-token architecture:
+  - `accessToken` (15-minute validity) is stored in `localStorage` for cross-origin REST `Authorization: Bearer` headers and STOMP WebSocket `CONNECT` frame authentication.
+  - `refreshToken` (7-day validity) is stored in a secure, `HttpOnly`, `SameSite` cookie used strictly to rotate tokens via `/api/auth/refresh`.
+  - *Trade-off analysis*: Storing the access token in `localStorage` enables cross-domain STOMP WebSocket authentication, with the standard trade-off of accessibility to client scripts in the event of an XSS vulnerability. This is mitigated by short token lifetimes (15 minutes), strict HttpOnly refresh token rotation, and Content Security Policy (CSP) headers.
+- **WebSockets**: STOMP over SockJS endpoints protected by `AuthChannelInterceptor` routing binary CRDT updates, cursor awareness, and in-room chat.
+- **Execution Providers**:
+  - Cloud / Remote: `Judge0` and `Piston` execution providers wrapped with `Resilience4j` Circuit Breakers, Retries, and Bulkheads.
+  - Local Host: `docker-java` for containerized execution and interactive terminal sessions.
 
-### 3. Data Layer
-- **PostgreSQL**: Stores relational data: Users, Workspaces, Files, Execution History, and Snapshots.
-- **Redis (Upstash)**: 
-  - **Pub/Sub**: Essential for horizontally scaling the backend. If User A connects to Backend Node 1 and User B connects to Backend Node 2, Redis Pub/Sub bridges the WebSocket messages so they can collaborate seamlessly.
-  - **Rate Limiting**: `Bucket4j` uses Redis to track IP-based rate limits across instances.
+### 3. Data & Messaging Layer
+- **PostgreSQL**: Stores persistent relational entities: Users, Workspaces, Files, Execution History, and Snapshots.
+- **Redis (Upstash)**:
+  - **Pub/Sub**: Coordinates Yjs document updates across distributed backend instances (`yjs:updates`).
+  - **Document State Cache**: Caches binary Yjs state vectors (`yjs:doc:{roomId}:{fileId}`) for rapid access prior to 2000ms debounced PostgreSQL flushes.
+  - **Rate Limiting**: Atomic Redis Lua script (`INCR` + `EXPIRE`) enforcing request limits on auth and resource-intensive endpoints. *(Note: `bucket4j-core` dependency is currently unused and marked for removal).*
+  - **Execution Queue**: FIFO queue for asynchronous server-side code execution tasks.
 
-### 4. Execution Layer (Docker)
-- Workspaces are logically mapped to physical Docker containers.
-- When a user clicks "Run", the backend writes the current file content to the container, triggers the appropriate runtime command (`node`, `python3`, `javac`), captures `stdout`/`stderr`, and returns the result.
-- A long-lived terminal connection can be established via `docker exec -it /bin/sh`.
+### 4. Deployment Topology
+- **Production**: Deployed on **Vercel** (React SPA) and **Render** free tier (Spring Boot backend) with **Neon** (serverless PostgreSQL) and **Upstash** (Redis).
+- **Self-Hosted / Local**: Docker Desktop or Cloudflare Tunnels (optional alternative for exposing local environments).
