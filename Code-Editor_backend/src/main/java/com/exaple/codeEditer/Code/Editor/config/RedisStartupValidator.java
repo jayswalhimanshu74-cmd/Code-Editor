@@ -70,34 +70,55 @@ public class RedisStartupValidator {
             provider = "Remote Redis Server";
         }
 
-        try (RedisConnection connection = connectionFactory.getConnection()) {
-            String pingResult = connection.ping();
-            log.info("\n" +
+        int maxAttempts = 5;
+        long retryDelayMs = 3000;
+        boolean connected = false;
+        String pingResult = null;
+        String lastError = null;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try (RedisConnection connection = connectionFactory.getConnection()) {
+                pingResult = connection.ping();
+                connected = true;
+                log.info("\n" +
+                        "========================================================================\n" +
+                        " Redis Configuration & Health Check\n" +
+                        "========================================================================\n" +
+                        " Redis Host:        {}:{}\n" +
+                        " SSL/TLS Enabled:   {}\n" +
+                        " Provider:          {}\n" +
+                        " Connection Status: {} (CONNECTED, attempt {}/{})\n" +
+                        "========================================================================",
+                        host, port, isSsl, provider, pingResult, attempt, maxAttempts);
+                break;
+            } catch (Exception e) {
+                lastError = e.getMessage();
+                log.warn("Redis startup connection attempt {}/{} failed for [{}:{}]: {}",
+                        attempt, maxAttempts, host, port, e.getMessage());
+                if (attempt < maxAttempts) {
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.warn("Redis startup retry interrupted.");
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!connected) {
+            log.warn("\n" +
                     "========================================================================\n" +
-                    " Redis Configuration & Health Check\n" +
-                    "========================================================================\n" +
-                    " Redis Host:        {}:{}\n" +
-                    " SSL/TLS Enabled:   {}\n" +
-                    " Provider:          {}\n" +
-                    " Connection Status: {} (CONNECTED)\n" +
-                    "========================================================================",
-                    host, port, isSsl, provider, pingResult);
-        } catch (Exception e) {
-            log.error("\n" +
-                    "========================================================================\n" +
-                    " FATAL: REDIS CONNECTION FAILED!\n" +
+                    " WARNING: REDIS CONNECTION NOT READY AT STARTUP\n" +
                     "========================================================================\n" +
                     " Host:        {}:{}\n" +
                     " SSL Enabled: {}\n" +
                     " Provider:    {}\n" +
-                    " Error:       {}\n" +
+                    " Last Error:  {}\n" +
+                    " Application will proceed to start. Redis features will reconnect.\n" +
                     "========================================================================",
-                    host, port, isSsl, provider, e.getMessage());
-
-            throw new IllegalStateException(
-                    String.format("Unable to connect to Redis [%s:%d, SSL=%b, Provider=%s]: %s",
-                            host, port, isSsl, provider, e.getMessage()),
-                    e);
+                    host, port, isSsl, provider, lastError);
         }
     }
 }
