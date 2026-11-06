@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
+import { withColdStartRetry } from '../../utils/coldStartHelper';
 
 const LANGUAGE_LABELS = {
   javascript: 'JavaScript', typescript: 'TypeScript', python: 'Python',
@@ -191,7 +192,9 @@ const Dashboard = () => {
   const { rooms, isLoading, fetchRooms, deleteRoom } = useRoomStore();
   const { setShowCreate, setShowJoin } = useOutletContext();
 
-  useEffect(() => { fetchRooms(); }, []);
+  useEffect(() => { 
+    withColdStartRetry(() => fetchRooms()).catch(() => {}); 
+  }, []);
 
   const greeting = () => {
     const h = new Date().getHours();

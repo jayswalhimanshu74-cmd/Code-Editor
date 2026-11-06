@@ -4,6 +4,7 @@ import useAuthStore from '../../store/authStore';
 import { authService } from '../../api/authService';
 import { wsService } from '../../api/websocketService';
 import { getBackendUrl } from '../../api/axios';
+import { warmServer, withColdStartRetry } from '../../utils/coldStartHelper';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const Login = () => {
 
   useEffect(() => {
     // Wake up backend on Render during cold starts
-    fetch(`${getBackendUrl()}/actuator/health`).catch(() => {});
+    warmServer();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -32,8 +33,12 @@ const Login = () => {
     clearError();
     setLocalError('');
     setLocalMessage('');
-    const success = await login(email, password);
-    if (success) navigate('/dashboard');
+    try {
+      const success = await withColdStartRetry(() => login(email, password));
+      if (success) navigate('/dashboard');
+    } catch (err) {
+      // Error handled by store / local error
+    }
   };
 
   const handleOAuthLogin = (provider) => {

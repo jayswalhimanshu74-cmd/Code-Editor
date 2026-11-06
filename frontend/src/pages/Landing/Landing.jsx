@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { warmServer } from '../../utils/coldStartHelper';
 
 const Landing = () => {
+  useEffect(() => {
+    warmServer();
+  }, []);
   return (
     <div className="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen selection:bg-primary/30 relative">
       

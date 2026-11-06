@@ -26,6 +26,7 @@ import AuthSuccess from './pages/AuthSuccess/AuthSuccess';
 import OAuthError from './pages/OAuthError/OAuthError';
 import ErrorBoundary from './components/ErrorBoundary';
 import OfflineBanner from './components/OfflineBanner';
+import ServerWarmupBanner from './components/ServerWarmupBanner';
 import GitHubCallback from './pages/Settings/GitHubCallback';
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
   return (
     <ErrorBoundary>
       <OfflineBanner />
+      <ServerWarmupBanner />
       <BrowserRouter>
       <Routes>
 

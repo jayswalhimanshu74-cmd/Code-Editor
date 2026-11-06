@@ -19,6 +19,7 @@ import { wsService } from '../../api/websocketService';
 import { fileService } from '../../api/fileService';
 import { executionService } from '../../api/executionService';
 import { roomService } from '../../api/roomService';
+import { withColdStartRetry } from '../../utils/coldStartHelper';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const MONACO_LANGUAGE_MAP = {
@@ -611,7 +612,7 @@ const EditorWorkspace = () => {
 
   useEffect(() => {
     if (!currentRoom) {
-      roomService.getRoom(roomId)
+      withColdStartRetry(() => roomService.getRoom(roomId))
         .then(res => {
           setCurrentRoom(res.data);
           setRoomLoading(false);
