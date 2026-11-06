@@ -2,6 +2,7 @@ package com.exaple.codeEditer.Code.Editor.security;
 
 import com.exaple.codeEditer.Code.Editor.service.PresenceService;
 import com.exaple.codeEditer.Code.Editor.service.SessionRegistry;
+import com.exaple.codeEditer.Code.Editor.service.YjsDocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -11,6 +12,8 @@ import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
+import java.util.Set;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -18,6 +21,7 @@ public class WebSocketEventListener {
 
     private final PresenceService presenceService;
     private final SessionRegistry sessionRegistry;
+    private final YjsDocumentService yjsDocumentService;
 
     @EventListener
     public void handleWebSocketConnect(SessionConnectEvent event) {
@@ -64,6 +68,11 @@ public class WebSocketEventListener {
         
         if (roomId != null && userEmail != null) {
             presenceService.removeUserPresence(roomId, userEmail);
+            Set<String> remainingUsers = presenceService.getOnlineUsers(roomId);
+            if (remainingUsers == null || remainingUsers.isEmpty()) {
+                log.info("[Yjs] Last user left room {}. Flushing any pending debounced saves.", roomId);
+                yjsDocumentService.flushAllForRoom(roomId);
+            }
         }
         
         sessionRegistry.unregisterSession(sessionId);

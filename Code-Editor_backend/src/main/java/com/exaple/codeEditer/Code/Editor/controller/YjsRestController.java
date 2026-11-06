@@ -1,8 +1,10 @@
 package com.exaple.codeEditer.Code.Editor.controller;
 
-import com.exaple.codeEditer.Code.Editor.entity.YjsDocument;
-import com.exaple.codeEditer.Code.Editor.repository.YjsDocumentRepository;
 import com.exaple.codeEditer.Code.Editor.repository.RoomMemberRepository;
+import com.exaple.codeEditer.Code.Editor.repository.YjsDocumentRepository;
+import com.exaple.codeEditer.Code.Editor.service.YjsDocumentService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +19,18 @@ import java.util.UUID;
 @RequestMapping("/api/yjs")
 public class YjsRestController {
 
+    private static final Logger log = LoggerFactory.getLogger(YjsRestController.class);
+
     private final YjsDocumentRepository yjsRepo;
     private final RoomMemberRepository roomMemberRepository;
+    private final YjsDocumentService yjsDocumentService;
 
-    public YjsRestController(YjsDocumentRepository yjsRepo, RoomMemberRepository roomMemberRepository) {
+    public YjsRestController(YjsDocumentRepository yjsRepo,
+                             RoomMemberRepository roomMemberRepository,
+                             YjsDocumentService yjsDocumentService) {
         this.yjsRepo = yjsRepo;
         this.roomMemberRepository = roomMemberRepository;
+        this.yjsDocumentService = yjsDocumentService;
     }
 
     private boolean checkMembership(String roomId, UserDetails userDetails) {
@@ -43,9 +51,12 @@ public class YjsRestController {
         if (!checkMembership(roomId, userDetails)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return yjsRepo.findByRoomIdAndFileIdIsNull(roomId)
-                .map(doc -> ResponseEntity.ok(Base64.getEncoder().encodeToString(doc.getState())))
-                .orElse(ResponseEntity.noContent().build());
+        byte[] state = yjsDocumentService.getState(roomId, null);
+        if (state != null && state.length > 0) {
+            log.debug("[Yjs State] state served: roomId={}, fileId=null, bytes={}", roomId, state.length);
+            return ResponseEntity.ok(Base64.getEncoder().encodeToString(state));
+        }
+        return ResponseEntity.noContent().build();
     }
 
     // ── Get initial state for a specific file ─────────────────────────────────
@@ -57,9 +68,12 @@ public class YjsRestController {
         if (!checkMembership(roomId, userDetails)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return yjsRepo.findByRoomIdAndFileId(roomId, fileId)
-                .map(doc -> ResponseEntity.ok(Base64.getEncoder().encodeToString(doc.getState())))
-                .orElse(ResponseEntity.noContent().build());
+        byte[] state = yjsDocumentService.getState(roomId, fileId);
+        if (state != null && state.length > 0) {
+            log.debug("[Yjs State] state served: roomId={}, fileId={}, bytes={}", roomId, fileId, state.length);
+            return ResponseEntity.ok(Base64.getEncoder().encodeToString(state));
+        }
+        return ResponseEntity.noContent().build();
     }
 
     // ── Save full state for main room buffer ──────────────────────────────────
@@ -72,14 +86,7 @@ public class YjsRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         byte[] state = Base64.getDecoder().decode(base64State.trim());
-        YjsDocument doc = yjsRepo.findByRoomIdAndFileIdIsNull(roomId)
-                .orElseGet(() -> {
-                    YjsDocument d = new YjsDocument();
-                    d.setRoomId(roomId);
-                    return d;
-                });
-        doc.setState(state);
-        yjsRepo.save(doc);
+        yjsDocumentService.saveState(roomId, null, state, false);
         return ResponseEntity.ok().build();
     }
 
@@ -94,15 +101,7 @@ public class YjsRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         byte[] state = Base64.getDecoder().decode(base64State.trim());
-        YjsDocument doc = yjsRepo.findByRoomIdAndFileId(roomId, fileId)
-                .orElseGet(() -> {
-                    YjsDocument d = new YjsDocument();
-                    d.setRoomId(roomId);
-                    d.setFileId(fileId);
-                    return d;
-                });
-        doc.setState(state);
-        yjsRepo.save(doc);
+        yjsDocumentService.saveState(roomId, fileId, state, false);
         return ResponseEntity.ok().build();
     }
 
