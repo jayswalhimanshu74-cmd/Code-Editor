@@ -21,6 +21,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
@@ -86,10 +87,24 @@ public class GlobalExceptionHandler {
                                 .body(response);
         }
 
-        @ExceptionHandler(NoResourceFoundException.class)
-        public ResponseEntity<ProblemDetail> handleNotFound(NoResourceFoundException ex) {
-                ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource not found");
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(pd);
+        // 2. Resource Not Found Exception Handlers (HTTP 404)
+        @ExceptionHandler({ NoResourceFoundException.class, NoHandlerFoundException.class })
+        public ResponseEntity<ProblemDetailResponse> handleNoResourceFound(
+                        Exception ex, HttpServletRequest request) {
+
+                log.debug("Resource not found for request [{}]: {}", request.getRequestURI(), ex.getMessage());
+
+                ProblemDetailResponse response = buildProblemDetail(
+                                "resource-not-found",
+                                "Resource Not Found",
+                                HttpStatus.NOT_FOUND,
+                                "Resource not found",
+                                request,
+                                null);
+
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                                .body(response);
         }
 
         // 2. Resource Not Found Exception Handler (HTTP 404)
