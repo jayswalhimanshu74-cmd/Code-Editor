@@ -4,7 +4,6 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import { snapshotService } from '../../api/snapshotService';
 import * as Y from 'yjs';
 import { MonacoBinding } from 'y-monaco';
-import { IndexeddbPersistence } from 'y-indexeddb';
 import { yjsService } from '../../api/yjsService';
 import useAuthStore from '../../store/authStore';
 import useRoomStore from '../../store/roomStore';
@@ -661,6 +660,9 @@ const EditorWorkspace = () => {
   const [showStdin, setShowStdin] = useState(false);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const [editorReady, setEditorReady] = useState(false);
+  const [isYjsLoading, setIsYjsLoading] = useState(false);
+  const [yjsError, setYjsError] = useState(null);
+  const [yjsRetryCount, setYjsRetryCount] = useState(0);
 
   // Snapshot state
   const [snapshots, setSnapshots] = useState([]);
@@ -985,56 +987,62 @@ const EditorWorkspace = () => {
   // Yjs Sync per active file
   // =========================
   useEffect(() => {
-    if (!activeFile?.id || wsStatus !== 'connected' || !editorReady || !editorRef.current) return;
+    if (!roomId || !activeFile?.id) return;
+    if (activeFile?.type === 'diff') return;
 
-    let binding;
-    let ydoc;
+    let binding = null;
+    let ydoc = null;
+    let cancelled = false;
     const fileId = activeFile.id; // capture for cleanup
 
-    const setupYjs = async () => {
-      // Do NOT bind Yjs if this is a diff tab
-      if (activeFile?.type === 'diff') return;
+    setIsYjsLoading(true);
+    setYjsError(null);
 
+    const setupYjs = async () => {
       try {
         console.log('[Yjs] Connecting to file:', fileId);
-        ydoc = await yjsService.connect(roomId, fileId);
-        ydocRef.current = ydoc;
+        // Step 1: Create Y.Doc and Y.Text
+        // Step 2: Subscribe to STOMP topic FIRST and buffer incoming updates
+        // Step 3: Fetch saved state with loading indicator & retry/backoff, and apply with Y.applyUpdate(ydoc, update, "remote")
+        // Step 4: Flush buffered updates
+        const { doc, ytext, awareness } = await yjsService.connect(roomId, fileId);
+        if (cancelled) return;
 
-        const ytext = ydoc.getText('monaco');
-        const editor = editorRef.current;
+        ydoc = doc;
+        ydocRef.current = doc;
 
-        // Step 1: Initialize IndexedDB persistence FIRST and wait for it to sync.
-        // This ensures IndexedDB content populates ytext before we decide to seed it.
-        await new Promise((resolve) => {
-          const indexeddbProvider = new IndexeddbPersistence(fileId, ydoc);
-          indexeddbProvider.on('synced', () => {
-            console.log('[Yjs] Local content loaded from IndexedDB for file', fileId);
-            resolve();
-          });
-          // Resolve after 500ms regardless, in case IndexedDB is empty/unavailable
-          setTimeout(resolve, 500);
-        });
-
-        // Step 2: Only seed from editor (DB content) if Yjs doc is STILL empty after IndexedDB sync.
-        // This prevents double-write when IndexedDB already has the content.
-        if (ytext.length === 0) {
-          const initial = editor.getValue();
-          if (initial) {
-            ydoc.transact(() => ytext.insert(0, initial));
+        // Step 5: Wait for Monaco editor instance if still mounting
+        let editor = editorRef.current;
+        if (!editor) {
+          const start = Date.now();
+          while (!editorRef.current && Date.now() - start < 4000) {
+            if (cancelled) return;
+            await new Promise(r => setTimeout(r, 50));
           }
-        } else {
-          // IndexedDB had content — push it into the editor to keep them in sync
-          editor.setValue(ytext.toString());
+          editor = editorRef.current;
         }
 
-        const awareness = yjsService.getAwarenessForRoom(roomId, fileId);
+        if (cancelled || !editor) {
+          if (!editor) throw new Error('Editor failed to mount within timeout');
+          return;
+        }
+
+        // Only seed from file content if the Yjs doc is genuinely empty (e.g. brand new file)
+        if (ytext.length === 0 && activeFileRef.current?.content) {
+          ydoc.transact(() => {
+            ytext.insert(0, activeFileRef.current.content);
+          });
+        }
+
+        const currentUser = userRef.current;
         if (awareness) {
           awareness.setLocalStateField('user', {
-            name: user?.username || 'Anonymous',
+            name: currentUser?.username || 'Anonymous',
             color: `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}`,
           });
         }
 
+        // Only then create the MonacoBinding and enable editing
         binding = new MonacoBinding(
           ytext,
           editor.getModel(),
@@ -1042,22 +1050,26 @@ const EditorWorkspace = () => {
           awareness ?? null
         );
         bindingRef.current = binding;
-
+        setIsYjsLoading(false);
         console.log('[Yjs] Bound to Monaco successfully for file', fileId);
       } catch (err) {
-        console.error('[Yjs] Failed to bind:', err);
+        if (cancelled) return;
+        console.error('[Yjs] Failed to initialize state:', err);
+        setYjsError(err.message || 'Failed to load collaborative document state');
+        setIsYjsLoading(false);
       }
     };
 
     setupYjs();
 
     return () => {
+      cancelled = true;
       if (binding) {
-        binding.destroy();
+        try { binding.destroy(); } catch { /* ignore */ }
         bindingRef.current = null;
       }
       if (ydoc) {
-        ydoc.destroy();
+        try { ydoc.destroy(); } catch { /* ignore */ }
         ydocRef.current = null;
       }
       (async () => {
@@ -1065,7 +1077,7 @@ const EditorWorkspace = () => {
         console.log('[Yjs] Disconnected from file', fileId);
       })();
     };
-  }, [activeFile?.id, wsStatus, roomId, user, editorReady]);
+  }, [roomId, activeFile?.id, yjsRetryCount]);
 
 
   // =========================
@@ -1668,60 +1680,83 @@ const EditorWorkspace = () => {
                   />
                 </>
               ) : (
-                <Editor
-                  height="100%"
-                  language={monacoLanguage}
-                  value={code}
-                  onChange={handleCodeChange}
-                  theme="hence-dark"
-                  beforeMount={handleEditorBeforeMount}
-                  onMount={(editor, monaco) => {
+                <>
+                  {isYjsLoading && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#1e1e1e]/90 backdrop-blur-sm select-none">
+                      <span className="material-symbols-outlined animate-spin text-primary text-4xl mb-3">progress_activity</span>
+                      <p className="text-sm font-medium text-white/80">Loading collaborative workspace...</p>
+                      <p className="text-xs text-white/40 mt-1">Synchronizing document state...</p>
+                    </div>
+                  )}
+                  {yjsError && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#1e1e1e]/95 p-6 text-center select-none">
+                      <span className="material-symbols-outlined text-red-400 text-4xl mb-2">cloud_off</span>
+                      <p className="text-sm font-semibold text-white/90 mb-1">Failed to load workspace state</p>
+                      <p className="text-xs text-red-400/80 mb-4 max-w-sm">{yjsError}</p>
+                      <button
+                        onClick={() => setYjsRetryCount(c => c + 1)}
+                        className="px-4 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold rounded transition-colors shadow-sm"
+                      >
+                        Retry Connection
+                      </button>
+                    </div>
+                  )}
+                  <Editor
+                    height="100%"
+                    language={monacoLanguage}
+                    value={code}
+                    onChange={handleCodeChange}
+                    theme="hence-dark"
+                    beforeMount={handleEditorBeforeMount}
+                    onMount={(editor, monaco) => {
 
-                    editorRef.current = editor;
+                      editorRef.current = editor;
 
-                    // ── Existing keybinding ──────────────────────────────────────────────
-                    editor.addCommand(
-                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                      () => {
-                        if (handleRunRef.current) {
-                          handleRunRef.current();
+                      // ── Existing keybinding ──────────────────────────────────────────────
+                      editor.addCommand(
+                        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                        () => {
+                          if (handleRunRef.current) {
+                            handleRunRef.current();
+                          }
                         }
-                      }
-                    );
+                      );
 
-                    editor.onDidChangeCursorPosition((e) => {
-                      setCursor({
-                        line: e.position.lineNumber,
-                        col: e.position.column,
+                      editor.onDidChangeCursorPosition((e) => {
+                        setCursor({
+                          line: e.position.lineNumber,
+                          col: e.position.column,
+                        });
                       });
-                    });
 
-                    setEditorReady(true);
-                  }}
-                  options={{
-                    fontSize: 13,
-                    fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-                    fontLigatures: true,
-                    lineHeight: 1.7,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    padding: { top: 16, bottom: 16 },
-                    lineNumbers: 'on',
-                    renderLineHighlight: 'line',
-                    cursorBlinking: 'smooth',
-                    cursorSmoothCaretAnimation: 'on',
-                    smoothScrolling: true,
-                    wordWrap: 'on',
-                    tabSize: 2,
-                    bracketPairColorization: { enabled: true },
-                    guides: { bracketPairs: true },
-                    suggest: { showStatusBar: true },
-                    quickSuggestions: { other: true, comments: false, strings: false },
-                    formatOnPaste: true,
-                    formatOnType: false,
-                    automaticLayout: true,
-                  }}
-                />
+                      setEditorReady(true);
+                    }}
+                    options={{
+                      readOnly: isYjsLoading || !!yjsError,
+                      fontSize: 13,
+                      fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+                      fontLigatures: true,
+                      lineHeight: 1.7,
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      padding: { top: 16, bottom: 16 },
+                      lineNumbers: 'on',
+                      renderLineHighlight: 'line',
+                      cursorBlinking: 'smooth',
+                      cursorSmoothCaretAnimation: 'on',
+                      smoothScrolling: true,
+                      wordWrap: 'on',
+                      tabSize: 2,
+                      bracketPairColorization: { enabled: true },
+                      guides: { bracketPairs: true },
+                      suggest: { showStatusBar: true },
+                      quickSuggestions: { other: true, comments: false, strings: false },
+                      formatOnPaste: true,
+                      formatOnType: false,
+                      automaticLayout: true,
+                    }}
+                  />
+                </>
               )}
             </div>
           </main>
