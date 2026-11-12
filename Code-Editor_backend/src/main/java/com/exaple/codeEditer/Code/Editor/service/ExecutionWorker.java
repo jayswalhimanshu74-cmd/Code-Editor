@@ -25,498 +25,450 @@ import java.util.concurrent.Semaphore;
 @Slf4j
 public class ExecutionWorker {
 
-    private final StringRedisTemplate redisTemplate;
-    private final ExecutionHistoryRepository executionHistoryRepository;
-    private final ExecutionProvider executionProvider;
-    private final BusinessMetricsService businessMetricsService;
-    private final RedisPublisher redisPublisher;
+        private final StringRedisTemplate redisTemplate;
+        private final ExecutionHistoryRepository executionHistoryRepository;
+        private final ExecutionProvider executionProvider;
+        private final BusinessMetricsService businessMetricsService;
+        private final RedisPublisher redisPublisher;
+        private static final long IDLE_POLL_MS = 15_000;
+        private static final long ERROR_BACKOFF_MS = 60_000;
+        private volatile long nextPollAtMs = 0;
 
-    private final ExecutorService executorService =
-            Executors.newFixedThreadPool(8);
+        private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
-    private final Semaphore executionSemaphore =
-            new Semaphore(8);
+        private final Semaphore executionSemaphore = new Semaphore(8);
 
-    private static final String EXECUTION_QUEUE =
-            "execution:queue:global";
+        private static final String EXECUTION_QUEUE = "execution:queue:global";
 
-    private static final int MAX_OUTPUT_LENGTH = 10_000;
+        private static final int MAX_OUTPUT_LENGTH = 10_000;
 
-    /**
-     * Poll the global execution queue.
-     */
-    @Scheduled(fixedDelay = 200)
-    public void processQueues() {
+        /**
+         * Poll the global execution queue.
+         */
+        @Scheduled(fixedDelay = 200)
+        public void processQueues() {
 
-        if (!executionSemaphore.tryAcquire()) {
-            return;
-        }
-
-        String execId = null;
-
-        try {
-
-            execId = redisTemplate
-                    .opsForList()
-                    .leftPop(EXECUTION_QUEUE);
-
-            if (execId == null) {
-                executionSemaphore.release();
-                return;
-            }
-
-        } catch (Exception e) {
-
-            executionSemaphore.release();
-
-            log.error(
-                    "Failed to pop execution from queue",e
-            );
-
-            return;
-        }
-
-        final String finalExecId = execId;
-
-        executorService.submit(() -> {
-
-            try {
-
-                UUID executionId =
-                        UUID.fromString(finalExecId);
-
-                ExecutionHistory history =
-                        executionHistoryRepository
-                                .findById(executionId)
-                                .orElse(null);
-
-                if (history == null) {
-
-                    log.warn(
-                            "Execution {} not found in database",
-                            finalExecId
-                    );
-
-                    return;
+                if (System.currentTimeMillis() < nextPollAtMs) {
+                        return; // no Redis call during idle/backoff
                 }
 
-                /*
-                 * Prevent duplicate execution.
-                 */
-                if (history.getStatus()
-                        != ExecutionHistory.ExecutionStatus.QUEUED) {
-
-                    log.warn(
-                            "Skipping execution {} because status is {}",
-                            finalExecId,
-                            history.getStatus()
-                    );
-
-                    return;
+                if (!executionSemaphore.tryAcquire()) {
+                        return;
                 }
 
-                log.info(
-                        "Processing execution request {} via ExecutionProvider",
-                        finalExecId
-                );
-
-                /*
-                 * ---------------------------------------------------------
-                 * RUNNING
-                 * ---------------------------------------------------------
-                 */
-
-                history.setStatus(
-                        ExecutionHistory.ExecutionStatus.RUNNING
-                );
-
-                executionHistoryRepository.save(history);
-
-                publishStatusUpdate(history);
-
-                businessMetricsService.incrementExecutionTotal();
-
-                long startTime =
-                        System.currentTimeMillis();
-
-                /*
-                 * ---------------------------------------------------------
-                 * EXECUTE THROUGH JUDGE0 PROVIDER
-                 * ---------------------------------------------------------
-                 */
-
-                ExecutionResult result =
-                        executionProvider.execute(
-                                history.getLanguage(),
-                                history.getSourceCode(),
-                                null
-                        );
-                        log.info(
-                            "Judge0 result for {} -> status={}, stdout={}, stderr={}, exitCode={}, durationMs={}",
-                            finalExecId,
-                            result.getStatus(),
-                            result.getStdout(),
-                            result.getStderr(),
-                            result.getExitCode(),
-                            result.getDurationMs()
-                    );
-
-                long duration =
-                        System.currentTimeMillis()
-                                - startTime;
-
-                businessMetricsService
-                        .recordExecutionTime(duration);
-
-                /*
-                 * ---------------------------------------------------------
-                 * STORE RESULT
-                 * ---------------------------------------------------------
-                 */
-
-                history.setStdout(
-                        truncateOutput(result.getStdout())
-                );
-
-                history.setStderr(
-                        truncateOutput(result.getStderr())
-                );
-
-                history.setExitCode(
-                        result.getExitCode()
-                );
-
-                history.setDurationMs(
-                        result.getDurationMs() != null
-                                ? result.getDurationMs().intValue()
-                                : (int) duration
-                );
-
-                /*
-                 * ---------------------------------------------------------
-                 * MAP EXECUTION STATUS
-                 * ---------------------------------------------------------
-                 */
-
-                if (result.getStatus()
-                        == ExecutionResult.Status.SUCCESS) {
-
-                    history.setStatus(
-                            ExecutionHistory.ExecutionStatus.SUCCESS
-                    );
-
-                } else if (result.getStatus()
-                        == ExecutionResult.Status.TIMEOUT) {
-
-                    history.setStatus(
-                            ExecutionHistory.ExecutionStatus.TIMEOUT
-                    );
-
-                    businessMetricsService
-                            .incrementExecutionFailures();
-
-                } else {
-
-                    history.setStatus(
-                            ExecutionHistory.ExecutionStatus.FAILED
-                    );
-
-                    businessMetricsService
-                            .incrementExecutionFailures();
-                }
-
-                /*
-                 * ---------------------------------------------------------
-                 * SAVE FINAL RESULT
-                 * ---------------------------------------------------------
-                 */
-
-                executionHistoryRepository.save(history);
-
-                /*
-                 * ---------------------------------------------------------
-                 * SEND FINAL RESULT TO FRONTEND
-                 * ---------------------------------------------------------
-                 */
-
-                publishStatusUpdate(history);
-
-                log.info(
-                        "Execution {} completed with status {}",
-                        finalExecId,
-                        history.getStatus()
-                );
-
-            } catch (Exception e) {
-
-                businessMetricsService
-                        .incrementExecutionFailures();
-
-                log.error(
-                        "Execution error for {}",
-                        finalExecId,
-                        e
-                );
-
-                /*
-                 * ---------------------------------------------------------
-                 * CRITICAL FIX:
-                 * NEVER leave an execution permanently RUNNING.
-                 * ---------------------------------------------------------
-                 */
+                String execId;
 
                 try {
 
-                    ExecutionHistory failedExecution =
-                            executionHistoryRepository
-                                    .findById(
-                                            UUID.fromString(finalExecId)
-                                    )
-                                    .orElse(null);
+                        execId = redisTemplate.opsForList().leftPop(EXECUTION_QUEUE);
 
-                    if (failedExecution != null) {
+                } catch (Exception e) {
 
-                        failedExecution.setStatus(
-                                ExecutionHistory.ExecutionStatus.FAILED
-                        );
-
-                        failedExecution.setExitCode(1);
-
-                        String errorMessage =
-                                e.getMessage() != null
-                                        ? e.getMessage()
-                                        : "Unknown execution error";
-
-                        failedExecution.setStderr(
-                                truncateOutput(
-                                        "[Execution Error] "
-                                                + errorMessage
-                                )
-                        );
-
-                        executionHistoryRepository
-                                .save(failedExecution);
-
-                        /*
-                         * Tell the frontend that execution failed.
-                         */
-                        publishStatusUpdate(failedExecution);
-                    }
-
-                } catch (Exception updateException) {
-
-                    log.error(
-                            "Failed to mark execution {} as FAILED",
-                            finalExecId,
-                            updateException
-                    );
+                        executionSemaphore.release();
+                        nextPollAtMs = System.currentTimeMillis() + ERROR_BACKOFF_MS;
+                        log.error("Failed to pop execution from queue; backing off {} ms",
+                                        ERROR_BACKOFF_MS, e);
+                        return;
+                }
+                if (execId == null) {
+                        executionSemaphore.release();
+                        nextPollAtMs = System.currentTimeMillis() + IDLE_POLL_MS;
+                        return;
                 }
 
-            } finally {
+                nextPollAtMs = 0; // job found: keep draining
+                final String finalExecId = execId;
 
-                executionSemaphore.release();
-            }
-        });
-    }
+                executorService.submit(() -> {
 
-    /**
-     * Cleanup executions that remain queued for too long.
-     */
-    @Scheduled(fixedDelay = 60000)
-    public void cleanupTimedOutExecutions() {
+                        try {
 
-        try {
+                                UUID executionId = UUID.fromString(finalExecId);
 
-            LocalDateTime timeoutThreshold =
-                    LocalDateTime.now()
-                            .minusMinutes(2);
+                                ExecutionHistory history = executionHistoryRepository
+                                                .findById(executionId)
+                                                .orElse(null);
 
-            List<ExecutionHistory> hangingQueued =
-                    executionHistoryRepository
-                            .findByStatusAndExecutedAtBefore(
-                                    ExecutionHistory.ExecutionStatus.QUEUED,
-                                    timeoutThreshold
-                            );
+                                if (history == null) {
 
-            for (ExecutionHistory history : hangingQueued) {
+                                        log.warn(
+                                                        "Execution {} not found in database",
+                                                        finalExecId);
 
-                log.warn(
-                        "Execution request {} timed out in queue. "
-                                + "Marking as TIMEOUT.",
-                        history.getId()
-                );
+                                        return;
+                                }
 
-                history.setStatus(
-                        ExecutionHistory.ExecutionStatus.TIMEOUT
-                );
+                                /*
+                                 * Prevent duplicate execution.
+                                 */
+                                if (history.getStatus() != ExecutionHistory.ExecutionStatus.QUEUED) {
 
-                history.setStderr(
-                        "[System Error]: "
-                                + "Execution timed out in queue "
-                                + "before processing."
-                );
+                                        log.warn(
+                                                        "Skipping execution {} because status is {}",
+                                                        finalExecId,
+                                                        history.getStatus());
 
-                executionHistoryRepository.save(history);
+                                        return;
+                                }
 
-                publishStatusUpdate(history);
-            }
+                                log.info(
+                                                "Processing execution request {} via ExecutionProvider",
+                                                finalExecId);
 
-        } catch (Exception e) {
+                                /*
+                                 * ---------------------------------------------------------
+                                 * RUNNING
+                                 * ---------------------------------------------------------
+                                 */
 
-            log.error(
-                    "Failed to execute cleanup job for hanging executions",
-                    e
-            );
+                                history.setStatus(
+                                                ExecutionHistory.ExecutionStatus.RUNNING);
+
+                                executionHistoryRepository.save(history);
+
+                                publishStatusUpdate(history);
+
+                                businessMetricsService.incrementExecutionTotal();
+
+                                long startTime = System.currentTimeMillis();
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * EXECUTE THROUGH JUDGE0 PROVIDER
+                                 * ---------------------------------------------------------
+                                 */
+
+                                ExecutionResult result = executionProvider.execute(
+                                                history.getLanguage(),
+                                                history.getSourceCode(),
+                                                null);
+                                log.info(
+                                                "Judge0 result for {} -> status={}, stdout={}, stderr={}, exitCode={}, durationMs={}",
+                                                finalExecId,
+                                                result.getStatus(),
+                                                result.getStdout(),
+                                                result.getStderr(),
+                                                result.getExitCode(),
+                                                result.getDurationMs());
+
+                                long duration = System.currentTimeMillis()
+                                                - startTime;
+
+                                businessMetricsService
+                                                .recordExecutionTime(duration);
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * STORE RESULT
+                                 * ---------------------------------------------------------
+                                 */
+
+                                history.setStdout(
+                                                truncateOutput(result.getStdout()));
+
+                                history.setStderr(
+                                                truncateOutput(result.getStderr()));
+
+                                history.setExitCode(
+                                                result.getExitCode());
+
+                                history.setDurationMs(
+                                                result.getDurationMs() != null
+                                                                ? result.getDurationMs().intValue()
+                                                                : (int) duration);
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * MAP EXECUTION STATUS
+                                 * ---------------------------------------------------------
+                                 */
+
+                                if (result.getStatus() == ExecutionResult.Status.SUCCESS) {
+
+                                        history.setStatus(
+                                                        ExecutionHistory.ExecutionStatus.SUCCESS);
+
+                                } else if (result.getStatus() == ExecutionResult.Status.TIMEOUT) {
+
+                                        history.setStatus(
+                                                        ExecutionHistory.ExecutionStatus.TIMEOUT);
+
+                                        businessMetricsService
+                                                        .incrementExecutionFailures();
+
+                                } else {
+
+                                        history.setStatus(
+                                                        ExecutionHistory.ExecutionStatus.FAILED);
+
+                                        businessMetricsService
+                                                        .incrementExecutionFailures();
+                                }
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * SAVE FINAL RESULT
+                                 * ---------------------------------------------------------
+                                 */
+
+                                executionHistoryRepository.save(history);
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * SEND FINAL RESULT TO FRONTEND
+                                 * ---------------------------------------------------------
+                                 */
+
+                                publishStatusUpdate(history);
+
+                                log.info(
+                                                "Execution {} completed with status {}",
+                                                finalExecId,
+                                                history.getStatus());
+
+                        } catch (Exception e) {
+
+                                businessMetricsService
+                                                .incrementExecutionFailures();
+
+                                log.error(
+                                                "Execution error for {}",
+                                                finalExecId,
+                                                e);
+
+                                /*
+                                 * ---------------------------------------------------------
+                                 * CRITICAL FIX:
+                                 * NEVER leave an execution permanently RUNNING.
+                                 * ---------------------------------------------------------
+                                 */
+
+                                try {
+
+                                        ExecutionHistory failedExecution = executionHistoryRepository
+                                                        .findById(
+                                                                        UUID.fromString(finalExecId))
+                                                        .orElse(null);
+
+                                        if (failedExecution != null) {
+
+                                                failedExecution.setStatus(
+                                                                ExecutionHistory.ExecutionStatus.FAILED);
+
+                                                failedExecution.setExitCode(1);
+
+                                                String errorMessage = e.getMessage() != null
+                                                                ? e.getMessage()
+                                                                : "Unknown execution error";
+
+                                                failedExecution.setStderr(
+                                                                truncateOutput(
+                                                                                "[Execution Error] "
+                                                                                                + errorMessage));
+
+                                                executionHistoryRepository
+                                                                .save(failedExecution);
+
+                                                /*
+                                                 * Tell the frontend that execution failed.
+                                                 */
+                                                publishStatusUpdate(failedExecution);
+                                        }
+
+                                } catch (Exception updateException) {
+
+                                        log.error(
+                                                        "Failed to mark execution {} as FAILED",
+                                                        finalExecId,
+                                                        updateException);
+                                }
+
+                        } finally {
+
+                                executionSemaphore.release();
+                        }
+                });
         }
-    }
 
-    /**
-     * Publish execution status through the application's
-     * existing Redis -> STOMP -> WebSocket pipeline.
-     */
-    private void publishStatusUpdate(
-            ExecutionHistory history) {
-
-        if (history.getRoom() == null) {
-            log.warn(
-                    "Cannot publish execution {} because room is null",
-                    history.getId()
-            );
-
-            return;
+        /** Call right after an execution id is pushed onto the queue. */
+        public void wakeUp() {
+                nextPollAtMs = 0;
         }
 
-        try {
+        /**
+         * Cleanup executions that remain queued for too long.
+         */
+        @Scheduled(fixedDelay = 60000)
+        public void cleanupTimedOutExecutions() {
 
-            /*
-             * IMPORTANT:
-             *
-             * This is the destination the React client
-             * must subscribe to.
-             */
-            String destination =
-                    "/topic/room/"
-                            + history.getRoom().getId()
-                            + "/execution";
+                try {
 
-            Map<String, Object> event =
-                    new HashMap<>();
+                        LocalDateTime timeoutThreshold = LocalDateTime.now()
+                                        .minusMinutes(2);
 
-            event.put(
-                    "type",
-                    "execution"
-            );
+                        List<ExecutionHistory> hangingQueued = executionHistoryRepository
+                                        .findByStatusAndExecutedAtBefore(
+                                                        ExecutionHistory.ExecutionStatus.QUEUED,
+                                                        timeoutThreshold);
 
-            event.put(
-                    "execId",
-                    history.getId().toString()
-            );
+                        for (ExecutionHistory history : hangingQueued) {
 
-            event.put(
-                    "status",
-                    history.getStatus().toString()
-            );
+                                log.warn(
+                                                "Execution request {} timed out in queue. "
+                                                                + "Marking as TIMEOUT.",
+                                                history.getId());
 
-            event.put(
-                    "stdout",
-                    history.getStdout()
-            );
+                                history.setStatus(
+                                                ExecutionHistory.ExecutionStatus.TIMEOUT);
 
-            event.put(
-                    "stderr",
-                    history.getStderr()
-            );
+                                history.setStderr(
+                                                "[System Error]: "
+                                                                + "Execution timed out in queue "
+                                                                + "before processing.");
 
-            event.put(
-                    "exitCode",
-                    history.getExitCode()
-            );
+                                executionHistoryRepository.save(history);
 
-            event.put(
-                    "durationMs",
-                    history.getDurationMs()
-            );
+                                publishStatusUpdate(history);
+                        }
 
-            /*
-             * Generic data field for frontend terminal output.
-             */
-            String stdout = history.getStdout();
-            String stderr = history.getStderr();
+                } catch (Exception e) {
 
-            if (stdout != null && !stdout.isBlank()) {
-
-                event.put(
-                        "data",
-                        stdout
-                );
-
-            } else if (stderr != null && !stderr.isBlank()) {
-
-                event.put(
-                        "data",
-                        stderr
-                );
-
-            } else {
-
-                event.put(
-                        "data",
-                        ""
-                );
-            }
-            /*
-             * IMPORTANT:
-             *
-             * Do NOT publish directly to:
-             *
-             * execution:events:{roomId}
-             *
-             * because the existing STOMP bridge does not
-             * consume that channel.
-             *
-             * Use RedisPublisher so the message follows
-             * the application's Redis -> STOMP pipeline.
-             */
-            redisPublisher.publish(
-                    destination,
-                    event
-            );
-
-            log.info(
-                    "EXECUTION EVENT PUBLISHED: id={}, destination={}, status={}, stdout={}",
-                    history.getId(),
-                    destination,
-                    history.getStatus(),
-                    history.getStdout()
-            );
-
-        } catch (Exception e) {
-
-            log.error(
-                    "Failed to publish status update event for {}",
-                    history.getId(),
-                    e
-            );
-        }
-    }
-
-    /**
-     * Prevent extremely large Judge0 output from
-     * being stored/transmitted.
-     */
-    private String truncateOutput(String text) {
-
-        if (text == null) {
-            return null;
+                        log.error(
+                                        "Failed to execute cleanup job for hanging executions",
+                                        e);
+                }
         }
 
-        if (text.length() <= MAX_OUTPUT_LENGTH) {
-            return text;
+        /**
+         * Publish execution status through the application's
+         * existing Redis -> STOMP -> WebSocket pipeline.
+         */
+        private void publishStatusUpdate(
+                        ExecutionHistory history) {
+
+                if (history.getRoom() == null) {
+                        log.warn(
+                                        "Cannot publish execution {} because room is null",
+                                        history.getId());
+
+                        return;
+                }
+
+                try {
+
+                        /*
+                         * IMPORTANT:
+                         *
+                         * This is the destination the React client
+                         * must subscribe to.
+                         */
+                        String destination = "/topic/room/"
+                                        + history.getRoom().getId()
+                                        + "/execution";
+
+                        Map<String, Object> event = new HashMap<>();
+
+                        event.put(
+                                        "type",
+                                        "execution");
+
+                        event.put(
+                                        "execId",
+                                        history.getId().toString());
+
+                        event.put(
+                                        "status",
+                                        history.getStatus().toString());
+
+                        event.put(
+                                        "stdout",
+                                        history.getStdout());
+
+                        event.put(
+                                        "stderr",
+                                        history.getStderr());
+
+                        event.put(
+                                        "exitCode",
+                                        history.getExitCode());
+
+                        event.put(
+                                        "durationMs",
+                                        history.getDurationMs());
+
+                        /*
+                         * Generic data field for frontend terminal output.
+                         */
+                        String stdout = history.getStdout();
+                        String stderr = history.getStderr();
+
+                        if (stdout != null && !stdout.isBlank()) {
+
+                                event.put(
+                                                "data",
+                                                stdout);
+
+                        } else if (stderr != null && !stderr.isBlank()) {
+
+                                event.put(
+                                                "data",
+                                                stderr);
+
+                        } else {
+
+                                event.put(
+                                                "data",
+                                                "");
+                        }
+                        /*
+                         * IMPORTANT:
+                         *
+                         * Do NOT publish directly to:
+                         *
+                         * execution:events:{roomId}
+                         *
+                         * because the existing STOMP bridge does not
+                         * consume that channel.
+                         *
+                         * Use RedisPublisher so the message follows
+                         * the application's Redis -> STOMP pipeline.
+                         */
+                        redisPublisher.publish(
+                                        destination,
+                                        event);
+
+                        log.info(
+                                        "EXECUTION EVENT PUBLISHED: id={}, destination={}, status={}, stdout={}",
+                                        history.getId(),
+                                        destination,
+                                        history.getStatus(),
+                                        history.getStdout());
+
+                } catch (Exception e) {
+
+                        log.error(
+                                        "Failed to publish status update event for {}",
+                                        history.getId(),
+                                        e);
+                }
         }
 
-        return text.substring(
-                0,
-                MAX_OUTPUT_LENGTH
-        ) + "\n...[Output Truncated]";
-    }
+        /**
+         * Prevent extremely large Judge0 output from
+         * being stored/transmitted.
+         */
+        private String truncateOutput(String text) {
+
+                if (text == null) {
+                        return null;
+                }
+
+                if (text.length() <= MAX_OUTPUT_LENGTH) {
+                        return text;
+                }
+
+                return text.substring(
+                                0,
+                                MAX_OUTPUT_LENGTH) + "\n...[Output Truncated]";
+        }
 }
